@@ -1,0 +1,1 @@
+python experiment_ogbnmag.py |& tee ./exp.log

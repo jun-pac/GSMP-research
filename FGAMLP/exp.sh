@@ -1,0 +1,1 @@
+python experiment_papers100m.py |& tee ./exp.time_JJ.log
