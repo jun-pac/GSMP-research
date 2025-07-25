@@ -16,42 +16,45 @@ core_num=multiprocessing.cpu_count()
 
 
 
-def compute_edge_weights(start_idx, end_idx):
-    partial_edge_weight = torch.zeros(end_idx - start_idx)
+def compute_edge_weights_chunk(args):
+    paper_year, row, col, dst_start, dst_end, num_nodes = args
+    import numpy as np
+    # Build CSC index for the chunk
+    edge_weights = np.zeros(np.sum((col >= dst_start) & (col < dst_end)), dtype=np.float32)
+    offset = 0
+    for dst in range(dst_start, dst_end):
+        mask = (col == dst)
+        srcs = row[mask]
+        if len(srcs) == 0:
+            continue
+        src_years = paper_year[srcs]
+        year_counts = np.bincount(src_years, minlength=2024)
+        local_weights = np.zeros(len(srcs), dtype=np.float32)
+        for idx, src in enumerate(srcs):
+            year = paper_year[src].item()
+            local_weights[idx] = 1.0 / (year_counts[year] if year_counts[year] > 0 else 1)
+        mean_val = np.mean(local_weights)
+        if mean_val > 0:
+            local_weights = local_weights / mean_val
+        edge_weights[offset:offset+len(srcs)] = local_weights
+        offset += len(srcs)
+    return edge_weights
 
-    for idx in range(start_idx, end_idx):
-        ys = min(2023, paper_year[row[idx]])
-        yd = min(2023, paper_year[col[idx]])
-        
-        partial_edge_weight[idx - start_idx] = (
-            delta_matrix[test_time][abs(ys - yd)] / 
-            max(delta_matrix[yd][abs(ys - yd)], 1)
-        )
-    
-    return partial_edge_weight
-
-
-
-def parallel_compute(edge_weight, num_workers=48):
-    pool = multiprocessing.Pool(processes=num_workers)
-    chunk_size = len(row) // num_workers
-    jobs = []
-
+def parallel_compute(edge_weight, paper_year, row, col, num_nodes, num_workers=48):
+    import numpy as np
+    import multiprocessing
+    chunk_size = (num_nodes + num_workers - 1) // num_workers
+    args_list = []
     for i in range(num_workers):
-        start_idx = i * chunk_size
-        end_idx = len(row) if i == num_workers - 1 else (i + 1) * chunk_size 
-        jobs.append(pool.apply_async(compute_edge_weights, (start_idx, end_idx)))
-
-    for i, job in enumerate(jobs):
-        partial_edge_weight = job.get()
-
-        if i == num_workers - 1:
-            edge_weight[i * chunk_size:] = partial_edge_weight
-        else:
-            edge_weight[i * chunk_size: (i + 1) * chunk_size] = partial_edge_weight
-
-    pool.close()
-    pool.join()
+        dst_start = i * chunk_size
+        dst_end = min((i + 1) * chunk_size, num_nodes)
+        if dst_start >= dst_end:
+            continue
+        args_list.append((paper_year, row, col, dst_start, dst_end, num_nodes))
+    with multiprocessing.Pool(processes=num_workers) as pool:
+        results = pool.map(compute_edge_weights_chunk, args_list)
+    edge_weights = np.concatenate(results)
+    edge_weight[:] = torch.from_numpy(edge_weights)
 
 
 
@@ -60,13 +63,13 @@ def parallel_compute(edge_weight, num_workers=48):
 
 # begin 4:22 AM
 
-f_log=open('./txtlog/heize_preprocess.txt','a')
+f_log=open('./txtlog/gsmp_rev_preprocess.txt','a')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--num_hops', type=int, default=6)
 parser.add_argument('--root', type=str, default='./')
 parser.add_argument('--pretrained_emb_path', type=str, default=None)
-parser.add_argument('--output_emb_prefix', type=str, default='./ogbn-papers100M-heize.node-emb')
+parser.add_argument('--output_emb_prefix', type=str, default='./ogbn-papers100M-gsmp_rev.node-emb')
 args = parser.parse_args()
 print(args)
 
@@ -103,21 +106,25 @@ row, col = data.edge_index
 
 print('Computing adj...')
 
-if not os.path.isfile("./heize_edge_weight.pt"):
+if not os.path.isfile("./gsmp_rev_edge_weight.pt"):
     edge_weight=torch.zeros(len(row))
     print(f"len edge_weight: {edge_weight.shape}")
     print(f"edge_weight.dtype: {edge_weight.dtype}")
 
     nums=torch.load("./num_year.pt")
+    # delta_matrix=[[0]*2024 for _ in range(2024)]
+    # for i in range(2024):
+    #     for j in range(2024):
+    #         delta_matrix[i][abs(j-i)]+=nums[j]
 
     test_time=2019
     # 4:37 AM begin (minimum 270G required)
-    parallel_compute(edge_weight, num_workers=48)
+    parallel_compute(edge_weight, paper_year, row, col, N, num_workers=48)
     # 5:23 AM finish
 
-    torch.save(edge_weight,"./heize_edge_weight.pt")
+    torch.save(edge_weight,"./gsmp_rev_edge_weight.pt")
 else:
-    edge_weight=torch.load("./heize_edge_weight.pt")
+    edge_weight=torch.load("./gsmp_rev_edge_weight.pt")
 
 
 adj = SparseTensor(row=row, col=col, value=edge_weight, sparse_sizes=(N, N))
@@ -136,7 +143,7 @@ print('Start processing')
 saved = np.concatenate((x[train_idx], x[valid_idx], x[test_idx]), axis=0)
 torch.save(torch.from_numpy(saved).to(torch.float), f'{args.output_emb_prefix}_0.pt')
 
-edge_weight=torch.load("heize_edge_weight.pt")
+edge_weight=torch.load("gsmp_rev_edge_weight.pt")
 
 
 for i in tqdm(range(args.num_hops)):
