@@ -1,5 +1,6 @@
 import argparse
 import os
+import time
 from typing import Optional, Tuple
 
 import pandas as pd
@@ -214,6 +215,9 @@ def main() -> None:
     parser.add_argument("--lr", type=float, default=0.01)
     parser.add_argument("--weight-decay", type=float, default=5e-4)
     parser.add_argument("--epochs", type=int, default=200)
+    parser.add_argument("--result-dir", type=str, default="results")
+    parser.add_argument("--tag", type=str, default=None,
+                        help="Suffix tag for the result txt file.")
     args = parser.parse_args()
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
@@ -241,20 +245,68 @@ def main() -> None:
     print(f"Train/Val/Test labels: {int(data.train_mask.sum())}/"
           f"{int(data.val_mask.sum())}/{int(data.test_mask.sum())}")
 
+    history = []
     best_val = -1.0
     best_test = -1.0
+    best_epoch = 0
     for epoch in range(1, args.epochs + 1):
         loss = train(model, data, optimizer)
         train_acc, val_acc, test_acc = evaluate(model, data)
+        history.append((epoch, loss, train_acc, val_acc, test_acc))
         if val_acc > best_val:
             best_val = val_acc
             best_test = test_acc
+            best_epoch = epoch
         if epoch == 1 or epoch % 10 == 0:
             print(
                 f"Epoch {epoch:03d} | Loss {loss:.4f} | "
                 f"Train {train_acc:.4f} | Val {val_acc:.4f} | "
                 f"Test {test_acc:.4f} | BestTest {best_test:.4f}"
             )
+
+    tag = args.tag
+    if tag is None:
+        graph_tag = "smp" if args.use_smp else "vanilla"
+        direction_tag = "directed" if args.directed else "undirected"
+        tag = (
+            f"{graph_tag}_{direction_tag}_"
+            f"L{args.num_layers}_H{args.hidden_channels}_"
+            f"lr{args.lr:g}_wd{args.weight_decay:g}"
+        )
+    safe_tag = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in tag)
+    os.makedirs(args.result_dir, exist_ok=True)
+    result_path = os.path.join(args.result_dir, f"elliptic_bitcoin_{safe_tag}.txt")
+
+    final_epoch, final_loss, final_train, final_val, final_test = history[-1]
+    with open(result_path, "w", encoding="utf-8") as f:
+        f.write("Elliptic Bitcoin SMP GCN result\n")
+        f.write(f"timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"tag: {safe_tag}\n")
+        f.write(f"root: {args.root}\n")
+        f.write(f"use_smp: {args.use_smp}\n")
+        f.write(f"directed: {args.directed}\n")
+        f.write(f"num_nodes: {data.num_nodes}\n")
+        f.write(f"num_edges: {data.edge_index.size(1)}\n")
+        f.write(f"num_features: {data.num_features}\n")
+        f.write(f"train_labels: {int(data.train_mask.sum())}\n")
+        f.write(f"val_labels: {int(data.val_mask.sum())}\n")
+        f.write(f"test_labels: {int(data.test_mask.sum())}\n")
+        f.write(f"hidden_channels: {args.hidden_channels}\n")
+        f.write(f"num_layers: {args.num_layers}\n")
+        f.write(f"dropout: {args.dropout}\n")
+        f.write(f"lr: {args.lr}\n")
+        f.write(f"weight_decay: {args.weight_decay}\n")
+        f.write(f"epochs: {args.epochs}\n")
+        f.write(f"best_epoch: {best_epoch}\n")
+        f.write(f"best_val_acc: {best_val:.6f}\n")
+        f.write(f"best_test_acc: {best_test:.6f}\n")
+        f.write(f"final_epoch: {final_epoch}\n")
+        f.write(f"final_loss: {final_loss:.6f}\n")
+        f.write(f"final_train_acc: {final_train:.6f}\n")
+        f.write(f"final_val_acc: {final_val:.6f}\n")
+        f.write(f"final_test_acc: {final_test:.6f}\n")
+
+    print(f"Saved result txt to {result_path}")
 
 
 if __name__ == "__main__":
