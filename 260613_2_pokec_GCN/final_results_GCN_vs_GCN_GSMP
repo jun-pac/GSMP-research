@@ -1,0 +1,174 @@
+# Final Results: Pokec GCN vs GCN+GSMP
+
+Date: 2026-06-13
+
+## Folder
+
+The experiment folder was renamed from:
+
+```text
+260613_2_GCN
+```
+
+to:
+
+```text
+260613_2_pokec_GCN
+```
+
+## Experiment Setup
+
+Dataset: SNAP Pokec with processed benchmark features from `pokec.mat`.
+
+Task: binary node classification with chronological registration-year split.
+
+Split:
+
+| split | nodes |
+| --- | ---: |
+| train | 1,218,296 |
+| valid | 297,038 |
+| test | 117,306 |
+
+Graph:
+
+- Main training graph: undirected+self-loop
+- Preprocessing follows the paper-style/tunedGNN convention: `to_undirected`, remove self-loops, then add self-loops
+- Training edges including self-loops: 46,236,731
+- Raw directed edges: 30,622,564
+
+Features/classes:
+
+- Nodes: 1,632,803
+- Features: 65
+- Classes: 2
+
+Model setting:
+
+| parameter | value |
+| --- | ---: |
+| hidden channels | 256 |
+| local GCN layers | 7 |
+| residual connections | enabled |
+| batch normalization | enabled |
+| dropout | 0.2 |
+| input dropout | 0.0 |
+| learning rate | 0.0005 |
+| weight decay | 0.0 |
+| batch size | 250,000 |
+| epochs | 100 |
+| seeds | 1, 2, 3 |
+| eval schedule | every 5 epochs after epoch 50 |
+| directed graph | false |
+| GSMP placement | first GCN layer only |
+| GSMP self-loops | excluded from timestamp counts; self-loop weight 1.0 |
+
+The GCN architecture was aligned to the large-graph paper implementation: 7 hidden GCN layers followed by a separate linear prediction head.
+
+## Per-Seed Results
+
+Metric reported as `test_at_best_valid` uses the test accuracy at the epoch with the best validation accuracy.
+
+| method | seed | best epoch | best valid acc | test at best valid | final valid acc | final test acc | runtime sec | max GPU GB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| GCN | 1 | 90 | 0.788845 | 0.766815 | 0.787694 | 0.765085 | 1172.85 | 5.965 |
+| GCN | 2 | 85 | 0.789465 | 0.767557 | 0.787960 | 0.765178 | 1171.32 | 5.966 |
+| GCN | 3 | 85 | 0.787095 | 0.765042 | 0.784819 | 0.762399 | 1171.34 | 5.965 |
+| GCN+GSMP | 1 | 100 | 0.789269 | 0.767454 | 0.789269 | 0.767454 | 1279.10 | 5.989 |
+| GCN+GSMP | 2 | 85 | 0.787980 | 0.766636 | 0.786347 | 0.764326 | 1281.53 | 5.989 |
+| GCN+GSMP | 3 | 85 | 0.788902 | 0.768298 | 0.784055 | 0.761896 | 1282.23 | 5.990 |
+
+## Aggregate Results
+
+| method | runs | best valid acc | test at best valid | best epochs | max GPU GB | runtime sec |
+| --- | ---: | ---: | ---: | --- | ---: | ---: |
+| GCN | 3 | 0.7885 +/- 0.0010 | 0.7665 +/- 0.0011 | 90, 85, 85 | 5.9650 +/- 0.0004 | 1171.8375 +/- 0.7176 |
+| GCN+GSMP | 3 | 0.7887 +/- 0.0005 | 0.7675 +/- 0.0007 | 100, 85, 85 | 5.9893 +/- 0.0003 | 1280.9541 +/- 1.3441 |
+
+Mean test improvement:
+
+```text
+GCN+GSMP - GCN = +0.000992
+```
+
+Seed-wise test differences:
+
+| seed | GSMP - GCN |
+| ---: | ---: |
+| 1 | +0.000639 |
+| 2 | -0.000921 |
+| 3 | +0.003256 |
+
+## Statistical Test
+
+Paired tests were run across the same seeds, comparing `test_at_best_valid`.
+
+| test | p-value |
+| --- | ---: |
+| paired t-test, two-sided | 0.5013 |
+| paired t-test, one-sided GSMP > GCN | 0.2506 |
+| Wilcoxon signed-rank, two-sided | 0.7500 |
+| Wilcoxon signed-rank, one-sided GSMP > GCN | 0.3750 |
+
+Conclusion: the 100-epoch 3-seed result is not statistically significant at `p < 0.05`. It shows a small positive trend for GSMP, but the evidence is weak with only 3 seeds.
+
+## Resource Usage
+
+SLURM job:
+
+```text
+48235559 pokec_smoke
+```
+
+Accounting:
+
+| item | value |
+| --- | ---: |
+| state | COMPLETED |
+| elapsed wall time | 02:03:13 |
+| total CPU time | 03:29:48 |
+| allocated CPUs | 6 |
+| requested memory | 48G |
+| CPU MaxRSS | 15505.50M |
+| GPU allocation | 1x V100 |
+| billing TRES | billing=6,cpu=6,gres/gpu:v100=1,gres/gpu=1,mem=48G,node=1 |
+
+Approximate GPU-hours:
+
+```text
+2.05 V100 GPU-hours
+```
+
+Approximate SLURM billing-hours:
+
+```text
+about 12.3 billing-hours
+```
+
+## Interpretation
+
+GCN+GSMP is slightly higher on average:
+
+```text
+0.7675 vs 0.7665 test-at-best-valid
+```
+
+However, the margin is small and not statistically significant. Five of six runs reached their best validation epoch by epoch 90 or earlier, suggesting that a 200-epoch rerun may have limited value relative to its extra GPU cost. If a longer run is attempted later, it should be launched with checkpointing enabled:
+
+```bash
+SAVE_CHECKPOINTS=1
+```
+
+so that later extensions can resume instead of restarting from epoch 1.
+
+## Output Files
+
+Main result files:
+
+- `results/pokec_temporal_results.csv`
+- `results/pokec_temporal_summary.md`
+- `logs/pokec_smoke_48235559.log`
+
+Earlier exploratory and pre-paper-alignment results are archived under:
+
+- `results/archive/`

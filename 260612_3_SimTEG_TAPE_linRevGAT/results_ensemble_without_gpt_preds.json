@@ -1,0 +1,542 @@
+[
+  {
+    "algorithm": "weighted average of softmax probabilities, then argmax; same core method as SimTeG compute_ensemble.py",
+    "components": [
+      "arxiv_e5",
+      "arxiv_roberta",
+      "tape_e5",
+      "tape_roberta"
+    ],
+    "feature_sources": [
+      "ogbn-arxiv_e5-large",
+      "ogbn-arxiv_all-roberta-large-v1",
+      "ogbn-arxiv-tape_e5-large",
+      "ogbn-arxiv-tape_all-roberta-large-v1"
+    ],
+    "mode": "baseline",
+    "name": "20260612_043110_baseline_official_text_weights_2_2_1_1",
+    "normalized_weights": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.16666666666666666,
+      0.16666666666666666
+    ],
+    "num_seeds": 3,
+    "prefix": "20260612_043110",
+    "raw_weights": [
+      2.0,
+      2.0,
+      1.0,
+      1.0
+    ],
+    "rows": [
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_arxiv_e5_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_arxiv_roberta_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_tape_e5_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_tape_roberta_seed1/cached_embs/logits_seed1.pt",
+        "mode": "baseline",
+        "name": "20260612_043110_baseline_official_text_weights_2_2_1_1",
+        "normalized_weights": "0.33333333 0.33333333 0.16666667 0.16666667",
+        "prefix": "20260612_043110",
+        "raw_weights": "2.0 2.0 1.0 1.0",
+        "seed": 1,
+        "test_at_best_val": 0.7805691006727979,
+        "timestamp": "2026-06-12T05:30:01",
+        "train_acc": 0.844855455735037,
+        "val_acc": 0.7858988556662976
+      },
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_arxiv_e5_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_arxiv_roberta_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_tape_e5_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_tape_roberta_seed2/cached_embs/logits_seed2.pt",
+        "mode": "baseline",
+        "name": "20260612_043110_baseline_official_text_weights_2_2_1_1",
+        "normalized_weights": "0.33333333 0.33333333 0.16666667 0.16666667",
+        "prefix": "20260612_043110",
+        "raw_weights": "2.0 2.0 1.0 1.0",
+        "seed": 2,
+        "test_at_best_val": 0.7778532189371027,
+        "timestamp": "2026-06-12T05:30:04",
+        "train_acc": 0.8481762901221671,
+        "val_acc": 0.7858988556662976
+      },
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_arxiv_e5_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_arxiv_roberta_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_tape_e5_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_tape_roberta_seed3/cached_embs/logits_seed3.pt",
+        "mode": "baseline",
+        "name": "20260612_043110_baseline_official_text_weights_2_2_1_1",
+        "normalized_weights": "0.33333333 0.33333333 0.16666667 0.16666667",
+        "prefix": "20260612_043110",
+        "raw_weights": "2.0 2.0 1.0 1.0",
+        "seed": 3,
+        "test_at_best_val": 0.7822150896035224,
+        "timestamp": "2026-06-12T05:30:07",
+        "train_acc": 0.8443606294190739,
+        "val_acc": 0.7863015537434143
+      }
+    ],
+    "seeds": [
+      1,
+      2,
+      3
+    ],
+    "test_at_best_val_mean": 0.7802124697378076,
+    "test_at_best_val_std": 0.0022026956543034176,
+    "timestamp": "2026-06-12T05:30:08",
+    "train_mean": 0.8457974584254259,
+    "train_std": 0.002074932155952968,
+    "val_mean": 0.7860330883586698,
+    "val_std": 0.00023249784322546048
+  },
+  {
+    "algorithm": "weighted average of softmax probabilities, then argmax; same core method as SimTeG compute_ensemble.py",
+    "components": [
+      "arxiv_e5",
+      "arxiv_roberta",
+      "tape_e5",
+      "tape_roberta"
+    ],
+    "feature_sources": [
+      "ogbn-arxiv_e5-large",
+      "ogbn-arxiv_all-roberta-large-v1",
+      "ogbn-arxiv-tape_e5-large",
+      "ogbn-arxiv-tape_all-roberta-large-v1"
+    ],
+    "mode": "gsmp_first_layer",
+    "name": "20260612_043110_gsmp_first_layer_official_text_weights_2_2_1_1",
+    "normalized_weights": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.16666666666666666,
+      0.16666666666666666
+    ],
+    "num_seeds": 3,
+    "prefix": "20260612_043110",
+    "raw_weights": [
+      2.0,
+      2.0,
+      1.0,
+      1.0
+    ],
+    "rows": [
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_arxiv_e5_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_arxiv_roberta_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_tape_e5_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_tape_roberta_seed1/cached_embs/logits_seed1.pt",
+        "mode": "gsmp_first_layer",
+        "name": "20260612_043110_gsmp_first_layer_official_text_weights_2_2_1_1",
+        "normalized_weights": "0.33333333 0.33333333 0.16666667 0.16666667",
+        "prefix": "20260612_043110",
+        "raw_weights": "2.0 2.0 1.0 1.0",
+        "seed": 1,
+        "test_at_best_val": 0.7822768141884245,
+        "timestamp": "2026-06-12T05:30:10",
+        "train_acc": 0.8469887069638556,
+        "val_acc": 0.7845229705694822
+      },
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_arxiv_e5_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_arxiv_roberta_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_tape_e5_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_tape_roberta_seed2/cached_embs/logits_seed2.pt",
+        "mode": "gsmp_first_layer",
+        "name": "20260612_043110_gsmp_first_layer_official_text_weights_2_2_1_1",
+        "normalized_weights": "0.33333333 0.33333333 0.16666667 0.16666667",
+        "prefix": "20260612_043110",
+        "raw_weights": "2.0 2.0 1.0 1.0",
+        "seed": 2,
+        "test_at_best_val": 0.7822150896035224,
+        "timestamp": "2026-06-12T05:30:14",
+        "train_acc": 0.8477694329290419,
+        "val_acc": 0.7839860397999933
+      },
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_arxiv_e5_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_arxiv_roberta_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_tape_e5_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_tape_roberta_seed3/cached_embs/logits_seed3.pt",
+        "mode": "gsmp_first_layer",
+        "name": "20260612_043110_gsmp_first_layer_official_text_weights_2_2_1_1",
+        "normalized_weights": "0.33333333 0.33333333 0.16666667 0.16666667",
+        "prefix": "20260612_043110",
+        "raw_weights": "2.0 2.0 1.0 1.0",
+        "seed": 3,
+        "test_at_best_val": 0.7815978437545007,
+        "timestamp": "2026-06-12T05:30:16",
+        "train_acc": 0.8438658031031108,
+        "val_acc": 0.7841202724923655
+      }
+    ],
+    "seeds": [
+      1,
+      2,
+      3
+    ],
+    "test_at_best_val_mean": 0.7820299158488159,
+    "test_at_best_val_std": 0.0003754559922411155,
+    "timestamp": "2026-06-12T05:30:17",
+    "train_mean": 0.8462079809986695,
+    "train_std": 0.0020656067459736372,
+    "val_mean": 0.784209760953947,
+    "val_std": 0.00027942763172806185
+  },
+  {
+    "algorithm": "weighted average of softmax probabilities, then argmax; same core method as SimTeG compute_ensemble.py",
+    "components": [
+      "arxiv_e5",
+      "arxiv_roberta",
+      "tape_e5",
+      "tape_roberta"
+    ],
+    "feature_sources": [
+      "ogbn-arxiv_e5-large",
+      "ogbn-arxiv_all-roberta-large-v1",
+      "ogbn-arxiv-tape_e5-large",
+      "ogbn-arxiv-tape_all-roberta-large-v1"
+    ],
+    "mode": "pgsmp",
+    "name": "20260612_043110_pgsmp_official_text_weights_2_2_1_1",
+    "normalized_weights": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.16666666666666666,
+      0.16666666666666666
+    ],
+    "num_seeds": 3,
+    "prefix": "20260612_043110",
+    "raw_weights": [
+      2.0,
+      2.0,
+      1.0,
+      1.0
+    ],
+    "rows": [
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_arxiv_e5_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_arxiv_roberta_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_tape_e5_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_tape_roberta_seed1/cached_embs/logits_seed1.pt",
+        "mode": "pgsmp",
+        "name": "20260612_043110_pgsmp_official_text_weights_2_2_1_1",
+        "normalized_weights": "0.33333333 0.33333333 0.16666667 0.16666667",
+        "prefix": "20260612_043110",
+        "raw_weights": "2.0 2.0 1.0 1.0",
+        "seed": 1,
+        "test_at_best_val": 0.776495278069255,
+        "timestamp": "2026-06-12T05:30:20",
+        "train_acc": 0.8346620336261972,
+        "val_acc": 0.7835833417228766
+      },
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_arxiv_e5_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_arxiv_roberta_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_tape_e5_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_tape_roberta_seed2/cached_embs/logits_seed2.pt",
+        "mode": "pgsmp",
+        "name": "20260612_043110_pgsmp_official_text_weights_2_2_1_1",
+        "normalized_weights": "0.33333333 0.33333333 0.16666667 0.16666667",
+        "prefix": "20260612_043110",
+        "raw_weights": "2.0 2.0 1.0 1.0",
+        "seed": 2,
+        "test_at_best_val": 0.7751373372014073,
+        "timestamp": "2026-06-12T05:30:22",
+        "train_acc": 0.8345080876612309,
+        "val_acc": 0.7833148763381321
+      },
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_arxiv_e5_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_arxiv_roberta_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_tape_e5_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_tape_roberta_seed3/cached_embs/logits_seed3.pt",
+        "mode": "pgsmp",
+        "name": "20260612_043110_pgsmp_official_text_weights_2_2_1_1",
+        "normalized_weights": "0.33333333 0.33333333 0.16666667 0.16666667",
+        "prefix": "20260612_043110",
+        "raw_weights": "2.0 2.0 1.0 1.0",
+        "seed": 3,
+        "test_at_best_val": 0.7783881653395881,
+        "timestamp": "2026-06-12T05:30:26",
+        "train_acc": 0.8342221880120078,
+        "val_acc": 0.7812342696063627
+      }
+    ],
+    "seeds": [
+      1,
+      2,
+      3
+    ],
+    "test_at_best_val_mean": 0.7766735935367501,
+    "test_at_best_val_std": 0.0016327333525282051,
+    "timestamp": "2026-06-12T05:30:27",
+    "train_mean": 0.8344641030998119,
+    "train_std": 0.00022319727218948624,
+    "val_mean": 0.7827108292224572,
+    "val_std": 0.0012857642243476295
+  },
+  {
+    "algorithm": "weighted average of softmax probabilities, then argmax; same core method as SimTeG compute_ensemble.py",
+    "components": [
+      "arxiv_e5",
+      "arxiv_roberta",
+      "tape_e5",
+      "tape_roberta"
+    ],
+    "feature_sources": [
+      "ogbn-arxiv_e5-large",
+      "ogbn-arxiv_all-roberta-large-v1",
+      "ogbn-arxiv-tape_e5-large",
+      "ogbn-arxiv-tape_all-roberta-large-v1"
+    ],
+    "mode": "baseline",
+    "name": "20260612_043110_baseline_uniform_text_weights_1_1_1_1",
+    "normalized_weights": [
+      0.25,
+      0.25,
+      0.25,
+      0.25
+    ],
+    "num_seeds": 3,
+    "prefix": "20260612_043110",
+    "raw_weights": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "rows": [
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_arxiv_e5_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_arxiv_roberta_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_tape_e5_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_tape_roberta_seed1/cached_embs/logits_seed1.pt",
+        "mode": "baseline",
+        "name": "20260612_043110_baseline_uniform_text_weights_1_1_1_1",
+        "normalized_weights": "0.25000000 0.25000000 0.25000000 0.25000000",
+        "prefix": "20260612_043110",
+        "raw_weights": "1.0 1.0 1.0 1.0",
+        "seed": 1,
+        "test_at_best_val": 0.7772976976729832,
+        "timestamp": "2026-06-12T05:30:28",
+        "train_acc": 0.8366523350304044,
+        "val_acc": 0.7839189234538072
+      },
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_arxiv_e5_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_arxiv_roberta_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_tape_e5_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_tape_roberta_seed2/cached_embs/logits_seed2.pt",
+        "mode": "baseline",
+        "name": "20260612_043110_baseline_uniform_text_weights_1_1_1_1",
+        "normalized_weights": "0.25000000 0.25000000 0.25000000 0.25000000",
+        "prefix": "20260612_043110",
+        "raw_weights": "1.0 1.0 1.0 1.0",
+        "seed": 2,
+        "test_at_best_val": 0.7771742485031788,
+        "timestamp": "2026-06-12T05:30:30",
+        "train_acc": 0.8408198722248491,
+        "val_acc": 0.7846907614349475
+      },
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_arxiv_e5_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_arxiv_roberta_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_tape_e5_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_baseline_tape_roberta_seed3/cached_embs/logits_seed3.pt",
+        "mode": "baseline",
+        "name": "20260612_043110_baseline_uniform_text_weights_1_1_1_1",
+        "normalized_weights": "0.25000000 0.25000000 0.25000000 0.25000000",
+        "prefix": "20260612_043110",
+        "raw_weights": "1.0 1.0 1.0 1.0",
+        "seed": 3,
+        "test_at_best_val": 0.7809805979054791,
+        "timestamp": "2026-06-12T05:30:33",
+        "train_acc": 0.8378839027501347,
+        "val_acc": 0.784992784992785
+      }
+    ],
+    "seeds": [
+      1,
+      2,
+      3
+    ],
+    "test_at_best_val_mean": 0.7784841813605471,
+    "test_at_best_val_std": 0.0021628410941951608,
+    "timestamp": "2026-06-12T05:30:33",
+    "train_mean": 0.8384520366684627,
+    "train_std": 0.002141068349828223,
+    "val_mean": 0.78453415662718,
+    "val_std": 0.0005537945924130173
+  },
+  {
+    "algorithm": "weighted average of softmax probabilities, then argmax; same core method as SimTeG compute_ensemble.py",
+    "components": [
+      "arxiv_e5",
+      "arxiv_roberta",
+      "tape_e5",
+      "tape_roberta"
+    ],
+    "feature_sources": [
+      "ogbn-arxiv_e5-large",
+      "ogbn-arxiv_all-roberta-large-v1",
+      "ogbn-arxiv-tape_e5-large",
+      "ogbn-arxiv-tape_all-roberta-large-v1"
+    ],
+    "mode": "gsmp_first_layer",
+    "name": "20260612_043110_gsmp_first_layer_uniform_text_weights_1_1_1_1",
+    "normalized_weights": [
+      0.25,
+      0.25,
+      0.25,
+      0.25
+    ],
+    "num_seeds": 3,
+    "prefix": "20260612_043110",
+    "raw_weights": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "rows": [
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_arxiv_e5_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_arxiv_roberta_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_tape_e5_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_tape_roberta_seed1/cached_embs/logits_seed1.pt",
+        "mode": "gsmp_first_layer",
+        "name": "20260612_043110_gsmp_first_layer_uniform_text_weights_1_1_1_1",
+        "normalized_weights": "0.25000000 0.25000000 0.25000000 0.25000000",
+        "prefix": "20260612_043110",
+        "raw_weights": "1.0 1.0 1.0 1.0",
+        "seed": 1,
+        "test_at_best_val": 0.7806308252577001,
+        "timestamp": "2026-06-12T05:30:35",
+        "train_acc": 0.8373890764341716,
+        "val_acc": 0.7841873888385517
+      },
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_arxiv_e5_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_arxiv_roberta_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_tape_e5_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_tape_roberta_seed2/cached_embs/logits_seed2.pt",
+        "mode": "gsmp_first_layer",
+        "name": "20260612_043110_gsmp_first_layer_uniform_text_weights_1_1_1_1",
+        "normalized_weights": "0.25000000 0.25000000 0.25000000 0.25000000",
+        "prefix": "20260612_043110",
+        "raw_weights": "1.0 1.0 1.0 1.0",
+        "seed": 2,
+        "test_at_best_val": 0.781330370553258,
+        "timestamp": "2026-06-12T05:30:37",
+        "train_acc": 0.8393463894173145,
+        "val_acc": 0.7842880633578307
+      },
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_arxiv_e5_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_arxiv_roberta_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_tape_e5_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_gsmp_first_layer_tape_roberta_seed3/cached_embs/logits_seed3.pt",
+        "mode": "gsmp_first_layer",
+        "name": "20260612_043110_gsmp_first_layer_uniform_text_weights_1_1_1_1",
+        "normalized_weights": "0.25000000 0.25000000 0.25000000 0.25000000",
+        "prefix": "20260612_043110",
+        "raw_weights": "1.0 1.0 1.0 1.0",
+        "seed": 3,
+        "test_at_best_val": 0.779478633006193,
+        "timestamp": "2026-06-12T05:30:39",
+        "train_acc": 0.8368392694164348,
+        "val_acc": 0.783851807107621
+      }
+    ],
+    "seeds": [
+      1,
+      2,
+      3
+    ],
+    "test_at_best_val_mean": 0.7804799429390504,
+    "test_at_best_val_std": 0.0009350438980943272,
+    "timestamp": "2026-06-12T05:30:40",
+    "train_mean": 0.837858245089307,
+    "train_std": 0.0013177640513096186,
+    "val_mean": 0.7841090864346678,
+    "val_std": 0.00022842576212470195
+  },
+  {
+    "algorithm": "weighted average of softmax probabilities, then argmax; same core method as SimTeG compute_ensemble.py",
+    "components": [
+      "arxiv_e5",
+      "arxiv_roberta",
+      "tape_e5",
+      "tape_roberta"
+    ],
+    "feature_sources": [
+      "ogbn-arxiv_e5-large",
+      "ogbn-arxiv_all-roberta-large-v1",
+      "ogbn-arxiv-tape_e5-large",
+      "ogbn-arxiv-tape_all-roberta-large-v1"
+    ],
+    "mode": "pgsmp",
+    "name": "20260612_043110_pgsmp_uniform_text_weights_1_1_1_1",
+    "normalized_weights": [
+      0.25,
+      0.25,
+      0.25,
+      0.25
+    ],
+    "num_seeds": 3,
+    "prefix": "20260612_043110",
+    "raw_weights": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "rows": [
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_arxiv_e5_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_arxiv_roberta_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_tape_e5_seed1/cached_embs/logits_seed1.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_tape_roberta_seed1/cached_embs/logits_seed1.pt",
+        "mode": "pgsmp",
+        "name": "20260612_043110_pgsmp_uniform_text_weights_1_1_1_1",
+        "normalized_weights": "0.25000000 0.25000000 0.25000000 0.25000000",
+        "prefix": "20260612_043110",
+        "raw_weights": "1.0 1.0 1.0 1.0",
+        "seed": 1,
+        "test_at_best_val": 0.7768244758553998,
+        "timestamp": "2026-06-12T05:30:42",
+        "train_acc": 0.8285481795889643,
+        "val_acc": 0.7821403402798751
+      },
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_arxiv_e5_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_arxiv_roberta_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_tape_e5_seed2/cached_embs/logits_seed2.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_tape_roberta_seed2/cached_embs/logits_seed2.pt",
+        "mode": "pgsmp",
+        "name": "20260612_043110_pgsmp_uniform_text_weights_1_1_1_1",
+        "normalized_weights": "0.25000000 0.25000000 0.25000000 0.25000000",
+        "prefix": "20260612_043110",
+        "raw_weights": "1.0 1.0 1.0 1.0",
+        "seed": 2,
+        "test_at_best_val": 0.7741291689813387,
+        "timestamp": "2026-06-12T05:30:44",
+        "train_acc": 0.8280423571326464,
+        "val_acc": 0.7829457364341085
+      },
+      {
+        "components": "arxiv_e5 arxiv_roberta tape_e5 tape_roberta",
+        "feature_sources": "ogbn-arxiv_e5-large ogbn-arxiv_all-roberta-large-v1 ogbn-arxiv-tape_e5-large ogbn-arxiv-tape_all-roberta-large-v1",
+        "logit_paths": "results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_arxiv_e5_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_arxiv_roberta_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_tape_e5_seed3/cached_embs/logits_seed3.pt results/simteg_tape_linearrevgat_gsmp/20260612_043110_pgsmp_tape_roberta_seed3/cached_embs/logits_seed3.pt",
+        "mode": "pgsmp",
+        "name": "20260612_043110_pgsmp_uniform_text_weights_1_1_1_1",
+        "normalized_weights": "0.25000000 0.25000000 0.25000000 0.25000000",
+        "prefix": "20260612_043110",
+        "raw_weights": "1.0 1.0 1.0 1.0",
+        "seed": 3,
+        "test_at_best_val": 0.7784910396477583,
+        "timestamp": "2026-06-12T05:30:46",
+        "train_acc": 0.8290320097645726,
+        "val_acc": 0.7813013859525487
+      }
+    ],
+    "seeds": [
+      1,
+      2,
+      3
+    ],
+    "test_at_best_val_mean": 0.7764815614948323,
+    "test_at_best_val_std": 0.0022010614761191287,
+    "timestamp": "2026-06-12T05:30:47",
+    "train_mean": 0.8285408488287277,
+    "train_std": 0.0004948670407330042,
+    "val_mean": 0.7821291542221774,
+    "val_std": 0.0008222323105221296
+  }
+]

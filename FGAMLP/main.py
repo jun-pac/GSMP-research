@@ -30,7 +30,7 @@ def get_n_params(model):
 
 
 def run(args, device):
-    args.output_dir =  f"./output/{args.dataset}"
+    args.output_dir = args.output_dir or f"./output/{args.dataset}/{args.impact_method}/seed_{args.seed}"
     os.makedirs(args.output_dir, exist_ok=True)
     checkpt_file = "{}/{}".format(args.output_dir, uuid.uuid4().hex)
 
@@ -127,14 +127,16 @@ def run(args, device):
                 loss,acc=train_rlu(model, train_loader, enhance_loader, optimizer, evaluator, device, feats, labels, label_emb, predict_prob,args.gama)
             end = time.time()
 
-            log = "Epoch {}, Time(s): {:.4f},Train loss: {:.4f}, Train acc: {:.4f} ".format(epoch, end - start,loss,acc*100)
+            label = f"Method: {args.method_label} | Seed: {args.seed}"
+            log = "{} | Epoch {:05d}, Time(s): {:.4f}, Train loss: {:.4f}, Train acc: {:.4f} ".format(
+                label, epoch, end - start, loss, acc * 100
+            )
             if epoch % args.eval_every == 0 and epoch > args.train_num_epochs[stage]:
                 with torch.no_grad():
                     acc = test(model, feats, labels, val_loader, evaluator,
                             label_emb)
                 end = time.time()
-                log += "Epoch {}, Time(s): {:.4f}, ".format(epoch, end - start)
-                log += "Val {:.4f}, ".format(acc)
+                log += "Valid Acc {:.4f}, ".format(acc)
                 if acc > best_val:
                     best_epoch = epoch
                     best_val = acc
@@ -147,13 +149,13 @@ def run(args, device):
                     count = count+args.eval_every
                     if count >= args.patience:
                         break
-                log += "Best Epoch {},Val {:.4f}, Test {:.4f}".format(
+                log += "Best Epoch {}, Best Valid {:.4f}, Best Test {:.4f}".format(
                             best_epoch, best_val, best_test)
             print(log)
 
 
-        print("Stage Best Epoch {}, Val {:.4f}, Test {:.4f}".format(
-            best_epoch, best_val, best_test))
+        print("{} | Stage Best Epoch {}, Best Valid {:.4f}, Best Test {:.4f}".format(
+            args.method_label, best_epoch, best_val, best_test))
 
         model.load_state_dict(torch.load(checkpt_file+f'_{stage}.pkl'))
         preds = gen_output_torch(model, feats, all_loader, labels.device, label_emb)
@@ -237,7 +239,12 @@ if __name__ == "__main__":
     #parser.add_argument("--use-emb", type=str)
     parser.add_argument("--root", type=str, required=True, default=None)
     parser.add_argument("--node_emb_path", type=str, default=None)
-    #parser.add_argument("--use-relation-subsets", type=str, default='/data4/zwt/NARS-main/sample_relation_subsets/examples/mag')
+    parser.add_argument("--emb-path", type=str, default="./data",
+                        help="Directory containing TransE_mag/{author,field_of_study,institution}.pt")
+    parser.add_argument("--use-relation-subsets", type=str, default="./sample_relation_subsets/mag/default.txt")
+    parser.add_argument("--impact-method", choices=("baseline", "smp", "ump", "gsmp"), default="baseline")
+    parser.add_argument("--non-paper-time-strategy", choices=("mean", "min", "max"), default="mean")
+    parser.add_argument("--output-dir", type=str, default=None)
     parser.add_argument("--use-rlu", action='store_true', default=False,
                         help="whether to use the reliable data distillation")
     parser.add_argument("--train-num-epochs", nargs='+',type=int, default=[100, 100],
@@ -250,5 +257,11 @@ if __name__ == "__main__":
                         help="whether to process the input features")
 
     args = parser.parse_args()
+    args.method_label = {
+        "baseline": "HH",
+        "smp": "HH+SMP",
+        "ump": "HH+UMP",
+        "gsmp": "HH+GSMP",
+    }[args.impact_method]
     print(args)
     main(args)

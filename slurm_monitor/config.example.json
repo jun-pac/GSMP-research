@@ -1,0 +1,25 @@
+{
+  "cost_label": "cost units",
+  "rates": {
+    "gpu_hour": 1.0,
+    "cpu_hour": 0.0,
+    "memory_gb_hour": 0.0,
+    "billing_hour": 0.0
+  },
+  "partition_rates": {
+    "gpu": {
+      "gpu_hour": 1.0,
+      "cpu_hour": 0.0,
+      "memory_gb_hour": 0.0,
+      "billing_hour": 0.0
+    }
+  },
+  "gpu_type_rates": {
+    "a100": {
+      "gpu_hour": 2.0
+    },
+    "h100": {
+      "gpu_hour": 3.0
+    }
+  }
+}

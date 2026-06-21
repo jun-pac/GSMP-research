@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Slurm Jobs</title>
+  <style>
+    :root {
+      --bg: #f5f7f8;
+      --panel: #ffffff;
+      --ink: #202426;
+      --muted: #647076;
+      --line: #d9e0e4;
+      --accent: #16756f;
+      --accent-soft: #d9efec;
+      --amber: #a65e21;
+      --amber-soft: #f4e0cf;
+      --violet: #615783;
+      --violet-soft: #e4e0ee;
+      --red: #a9403a;
+      --red-soft: #f0d6d4;
+      --green: #2d7a49;
+      --green-soft: #d9eddf;
+      --shadow: 0 1px 2px rgba(30, 38, 43, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .shell {
+      width: min(1440px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 24px 0 36px;
+    }
+
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 44px);
+      line-height: 1;
+      font-weight: 780;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(150px, 190px)) auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .toolbar input,
+    .toolbar select {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 0 12px;
+      outline: none;
+    }
+
+    .toolbar input:focus,
+    .toolbar select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    button {
+      min-height: 40px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: var(--accent);
+      color: white;
+      padding: 0 14px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    button:hover {
+      filter: brightness(0.95);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+
+    .metric {
+      min-width: 0;
+      min-height: 104px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 760;
+    }
+
+    .metric .value {
+      font-size: clamp(22px, 2.4vw, 34px);
+      line-height: 1.05;
+      font-weight: 780;
+      overflow-wrap: anywhere;
+    }
+
+    .metric .detail {
+      color: var(--muted);
+      font-size: 12px;
+      min-height: 16px;
+    }
+
+    .message {
+      display: none;
+      border: 1px solid var(--red);
+      border-radius: 6px;
+      background: var(--red-soft);
+      color: #5e201d;
+      padding: 10px 12px;
+      margin-bottom: 18px;
+      font-size: 14px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 26px 0 10px;
+      border-top: 1px solid var(--line);
+      padding-top: 20px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .trend-wrap {
+      min-height: 180px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    #trend {
+      width: 100%;
+      height: 130px;
+      display: block;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .cost-list {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      min-height: 180px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .cost-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 76px;
+      gap: 8px;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .bar {
+      height: 7px;
+      border-radius: 4px;
+      background: #e7ecef;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .bar > span {
+      display: block;
+      height: 100%;
+      min-width: 2px;
+      background: var(--amber);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      min-width: 1100px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: middle;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #eef3f5;
+      color: #3b454a;
+      font-size: 12px;
+      text-transform: uppercase;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .job-name {
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .state {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 82px;
+      min-height: 24px;
+      border-radius: 999px;
+      padding: 0 9px;
+      font-size: 12px;
+      font-weight: 760;
+      color: #273033;
+      background: #e8edf0;
+    }
+
+    .state.running {
+      color: #164527;
+      background: var(--green-soft);
+    }
+
+    .state.pending,
+    .state.active {
+      color: #57320f;
+      background: var(--amber-soft);
+    }
+
+    .state.finished {
+      color: #3c3658;
+      background: var(--violet-soft);
+    }
+
+    .state.unknown {
+      color: #5e201d;
+      background: var(--red-soft);
+    }
+
+    .empty {
+      padding: 28px 16px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1050px) {
+      .metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .chart-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .shell {
+        width: min(100% - 20px, 1440px);
+        padding-top: 16px;
+      }
+
+      header {
+        display: block;
+      }
+
+      header .subtle {
+        margin-top: 8px;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>Slurm Jobs</h1>
+        <div class="subtle" id="lastUpdated">Waiting for monitor data</div>
+      </div>
+      <div class="subtle mono" id="queryInfo"></div>
+    </header>
+
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="Search job id, name, state, partition">
+      <select id="statusFilter" aria-label="State filter">
+        <option value="active">Active</option>
+        <option value="running">Running</option>
+        <option value="pending">Pending</option>
+        <option value="finished">Finished</option>
+        <option value="all">All</option>
+      </select>
+      <select id="partitionFilter" aria-label="Partition filter">
+        <option value="all">All partitions</option>
+      </select>
+      <button id="refresh">Refresh</button>
+    </div>
+
+    <div class="message" id="message"></div>
+
+    <section class="metrics">
+      <div class="metric">
+        <div class="label">Active Jobs</div>
+        <div class="value" id="activeJobs">0</div>
+        <div class="detail" id="jobSplit">0 running, 0 pending</div>
+      </div>
+      <div class="metric">
+        <div class="label">GPUs Now</div>
+        <div class="value" id="activeGpus">0</div>
+        <div class="detail">allocated or requested</div>
+      </div>
+      <div class="metric">
+        <div class="label">Memory Now</div>
+        <div class="value" id="activeMemory">N/A</div>
+        <div class="detail">allocation, not RSS</div>
+      </div>
+      <div class="metric">
+        <div class="label">Run Time Now</div>
+        <div class="value" id="runningTime">00:00:00</div>
+        <div class="detail">running jobs total</div>
+      </div>
+      <div class="metric">
+        <div class="label">Cost Now</div>
+        <div class="value" id="activeCost">0</div>
+        <div class="detail" id="costLabel">cost units</div>
+      </div>
+      <div class="metric">
+        <div class="label">Total Cost</div>
+        <div class="value" id="totalCost">0</div>
+        <div class="detail" id="totalWindow">history window</div>
+      </div>
+    </section>
+
+    <div class="section-head">
+      <h2>Activity</h2>
+      <div class="subtle" id="trendCaption"></div>
+    </div>
+
+    <section class="chart-grid">
+      <div class="trend-wrap">
+        <svg id="trend" viewBox="0 0 800 130" role="img" aria-label="Activity trend"></svg>
+      </div>
+      <div class="cost-list" id="costList"></div>
+    </section>
+
+    <div class="section-head">
+      <h2>Jobs</h2>
+      <div class="subtle" id="rowCount">0 shown</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th data-sort="job_id">Job ID</th>
+            <th data-sort="name">Name</th>
+            <th data-sort="state">State</th>
+            <th data-sort="partition">Partition</th>
+            <th data-sort="gpus">GPU</th>
+            <th data-sort="memory_gb">Memory</th>
+            <th data-sort="cpus">CPU</th>
+            <th data-sort="elapsed_seconds">Elapsed</th>
+            <th data-sort="cost_units">Cost</th>
+            <th data-sort="submit_time">Submit</th>
+            <th data-sort="start_time">Start</th>
+            <th data-sort="node_list">Nodes</th>
+          </tr>
+        </thead>
+        <tbody id="jobsBody">
+          <tr><td colspan="12" class="empty">No data yet</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    const state = {
+      data: { summary: {}, jobs: [], query: {} },
+      history: [],
+      sortKey: "elapsed_seconds",
+      sortDir: -1,
+      partition: "all",
+      status: "active",
+      search: ""
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function number(value, digits = 0) {
+      const parsed = Number(value || 0);
+      return parsed.toLocaleString(undefined, {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits
+      });
+    }
+
+    function compactNumber(value) {
+      const parsed = Number(value || 0);
+      if (Math.abs(parsed) >= 1000) {
+        return parsed.toLocaleString(undefined, { maximumFractionDigits: 1, notation: "compact" });
+      }
+      return parsed.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+
+    function timeLabel(value) {
+      if (!value) return "N/A";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function sortValue(job, key) {
+      if (["gpus", "memory_gb", "cpus", "elapsed_seconds", "cost_units"].includes(key)) {
+        return Number(job[key] || 0);
+      }
+      if (["submit_time", "start_time"].includes(key)) {
+        const date = new Date(job[key] || 0);
+        return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+      }
+      return String(job[key] || "").toLowerCase();
+    }
+
+    function matchesFilter(job) {
+      if (state.status === "active" && !["running", "pending", "active"].includes(job.state_group)) return false;
+      if (!["all", "active"].includes(state.status) && job.state_group !== state.status) return false;
+      if (state.partition !== "all" && job.partition !== state.partition) return false;
+      const haystack = [
+        job.job_id,
+        job.display_job_id,
+        job.name,
+        job.state,
+        job.partition,
+        job.account,
+        job.node_list
+      ].join(" ").toLowerCase();
+      return haystack.includes(state.search.toLowerCase());
+    }
+
+    function filteredJobs() {
+      return [...(state.data.jobs || [])]
+        .filter(matchesFilter)
+        .sort((a, b) => {
+          const left = sortValue(a, state.sortKey);
+          const right = sortValue(b, state.sortKey);
+          if (left < right) return -1 * state.sortDir;
+          if (left > right) return 1 * state.sortDir;
+          return 0;
+        });
+    }
+
+    function renderSummary() {
+      const summary = state.data.summary || {};
+      $("activeJobs").textContent = number(summary.active_jobs);
+      $("jobSplit").textContent = `${number(summary.running_jobs)} running, ${number(summary.pending_jobs)} pending`;
+      $("activeGpus").textContent = number(summary.active_gpus);
+      $("activeMemory").textContent = summary.active_memory || "N/A";
+      $("runningTime").textContent = summary.running_elapsed || "00:00:00";
+      $("activeCost").textContent = compactNumber(summary.active_cost_units);
+      $("totalCost").textContent = compactNumber(summary.total_cost_units);
+      $("costLabel").textContent = summary.cost_label || "cost units";
+      $("totalWindow").textContent = `${number(summary.jobs)} jobs in window`;
+
+      if (summary.collected_at) {
+        $("lastUpdated").textContent = `Updated ${timeLabel(summary.collected_at)}`;
+      } else {
+        $("lastUpdated").textContent = "Waiting for monitor data";
+      }
+
+      const query = state.data.query || {};
+      const user = query.all_users ? "all users" : (query.user || "current user");
+      const account = query.account ? ` account=${query.account}` : "";
+      $("queryInfo").textContent = `${user}${account} days=${query.days || ""}`;
+
+      const errors = summary.errors || [];
+      $("message").style.display = errors.length ? "block" : "none";
+      $("message").textContent = errors.join(" | ");
+    }
+
+    function renderPartitions() {
+      const select = $("partitionFilter");
+      const current = state.partition;
+      const partitions = [...new Set((state.data.jobs || []).map((job) => job.partition).filter(Boolean))].sort();
+      select.innerHTML = `<option value="all">All partitions</option>` +
+        partitions.map((part) => `<option value="${escapeHtml(part)}">${escapeHtml(part)}</option>`).join("");
+      state.partition = partitions.includes(current) ? current : "all";
+      select.value = state.partition;
+    }
+
+    function renderTable() {
+      const rows = filteredJobs();
+      $("rowCount").textContent = `${number(rows.length)} shown`;
+      const body = $("jobsBody");
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="12" class="empty">No jobs match the current filter</td></tr>`;
+        return;
+      }
+      body.innerHTML = rows.map((job) => {
+        const group = escapeHtml(job.state_group || "unknown");
+        return `
+          <tr>
+            <td class="mono">${escapeHtml(job.display_job_id || job.job_id)}</td>
+            <td class="job-name" title="${escapeHtml(job.name)}">${escapeHtml(job.name || "unnamed")}</td>
+            <td><span class="state ${group}">${escapeHtml(job.state)}</span></td>
+            <td>${escapeHtml(job.partition)}</td>
+            <td>${number(job.gpus)}</td>
+            <td>${escapeHtml(job.memory || "N/A")}</td>
+            <td>${number(job.cpus)}</td>
+            <td class="mono">${escapeHtml(job.elapsed || "00:00:00")}</td>
+            <td>${compactNumber(job.cost_units)}</td>
+            <td>${escapeHtml(timeLabel(job.submit_time))}</td>
+            <td>${escapeHtml(timeLabel(job.start_time))}</td>
+            <td class="job-name" title="${escapeHtml(job.node_list)}">${escapeHtml(job.node_list || job.reason || "")}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderCostList() {
+      const jobs = filteredJobs()
+        .filter((job) => Number(job.cost_units || 0) > 0)
+        .sort((a, b) => Number(b.cost_units || 0) - Number(a.cost_units || 0))
+        .slice(0, 6);
+      const max = Math.max(1, ...jobs.map((job) => Number(job.cost_units || 0)));
+      const label = (state.data.summary || {}).cost_label || "cost units";
+      if (!jobs.length) {
+        $("costList").innerHTML = `<div class="empty">No nonzero cost in this filter</div>`;
+        return;
+      }
+      $("costList").innerHTML = `
+        <div class="subtle">Top cost jobs (${escapeHtml(label)})</div>
+        ${jobs.map((job) => {
+          const pct = Math.max(2, Math.min(100, (Number(job.cost_units || 0) / max) * 100));
+          return `
+            <div class="cost-row">
+              <div>
+                <div class="job-name" title="${escapeHtml(job.name)}">${escapeHtml(job.name || job.job_id)}</div>
+                <div class="bar"><span style="width:${pct}%"></span></div>
+              </div>
+              <div class="mono">${compactNumber(job.cost_units)}</div>
+            </div>
+          `;
+        }).join("")}
+      `;
+    }
+
+    function renderTrend() {
+      const svg = $("trend");
+      const records = state.history.slice(-80);
+      if (!records.length) {
+        svg.innerHTML = `<text x="400" y="70" text-anchor="middle" fill="#647076" font-size="14">No history yet</text>`;
+        $("trendCaption").textContent = "";
+        return;
+      }
+      const width = 800;
+      const height = 130;
+      const pad = 14;
+      const values = records.map((record) => Number(record.summary?.active_cost_units || 0));
+      const gpuValues = records.map((record) => Number(record.summary?.active_gpus || 0));
+      const max = Math.max(1, ...values, ...gpuValues);
+      const xFor = (index) => pad + (index / Math.max(1, records.length - 1)) * (width - pad * 2);
+      const yFor = (value) => height - pad - (value / max) * (height - pad * 2);
+      const costPoints = values.map((value, index) => `${xFor(index)},${yFor(value)}`).join(" ");
+      const gpuPoints = gpuValues.map((value, index) => `${xFor(index)},${yFor(value)}`).join(" ");
+      svg.innerHTML = `
+        <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#d9e0e4"/>
+        <polyline points="${gpuPoints}" fill="none" stroke="#615783" stroke-width="3" stroke-linejoin="round"/>
+        <polyline points="${costPoints}" fill="none" stroke="#16756f" stroke-width="3" stroke-linejoin="round"/>
+        <circle cx="${xFor(records.length - 1)}" cy="${yFor(values[values.length - 1])}" r="4" fill="#16756f"/>
+        <circle cx="${xFor(records.length - 1)}" cy="${yFor(gpuValues[gpuValues.length - 1])}" r="4" fill="#615783"/>
+        <text x="${pad}" y="16" fill="#16756f" font-size="12">cost</text>
+        <text x="${pad + 46}" y="16" fill="#615783" font-size="12">gpu</text>
+      `;
+      $("trendCaption").textContent = `${records.length} snapshots`;
+    }
+
+    function render() {
+      renderSummary();
+      renderPartitions();
+      renderTable();
+      renderCostList();
+      renderTrend();
+    }
+
+    async function load() {
+      const [jobsResponse, historyResponse] = await Promise.all([
+        fetch("/api/jobs", { cache: "no-store" }),
+        fetch("/api/history", { cache: "no-store" })
+      ]);
+      state.data = await jobsResponse.json();
+      state.history = await historyResponse.json();
+      render();
+    }
+
+    $("refresh").addEventListener("click", load);
+    $("search").addEventListener("input", (event) => {
+      state.search = event.target.value;
+      renderTable();
+      renderCostList();
+    });
+    $("statusFilter").addEventListener("change", (event) => {
+      state.status = event.target.value;
+      renderTable();
+      renderCostList();
+    });
+    $("partitionFilter").addEventListener("change", (event) => {
+      state.partition = event.target.value;
+      renderTable();
+      renderCostList();
+    });
+    document.querySelectorAll("th[data-sort]").forEach((header) => {
+      header.addEventListener("click", () => {
+        const key = header.dataset.sort;
+        if (state.sortKey === key) {
+          state.sortDir *= -1;
+        } else {
+          state.sortKey = key;
+          state.sortDir = ["gpus", "memory_gb", "cpus", "elapsed_seconds", "cost_units", "submit_time", "start_time"].includes(key) ? -1 : 1;
+        }
+        renderTable();
+      });
+    });
+
+    load().catch((error) => {
+      $("message").style.display = "block";
+      $("message").textContent = error.message;
+    });
+    setInterval(() => load().catch(() => {}), 30000);
+  </script>
+</body>
+</html>

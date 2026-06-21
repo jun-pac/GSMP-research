@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=elliptic-smp-gcn
+#SBATCH --account=PAS1289
 #SBATCH --output=logs/elliptic_smp_%j.out
 #SBATCH --error=logs/elliptic_smp_%j.err
 #SBATCH --partition=gpu
@@ -17,14 +18,30 @@ mkdir -p logs
 ELLIPTIC_ROOT="${ELLIPTIC_ROOT:-/path/to/elliptic_bitcoin_dataset}"
 
 # Optional: uncomment and adjust for your cluster.
-# module purge
-# module load cuda/12.1
-# source ~/miniconda3/etc/profile.d/conda.sh
-# conda activate pyg
+module load python/3.10
+source .venv/bin/activate
 
 echo "Running on $(hostname)"
+echo "Python=$(command -v python3)"
 echo "ELLIPTIC_ROOT=${ELLIPTIC_ROOT}"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-none}"
+
+if [[ "${ELLIPTIC_ROOT}" == "/path/to/elliptic_bitcoin_dataset" ]]; then
+  echo "ERROR: Set ELLIPTIC_ROOT to the directory containing Elliptic CSV files before submitting." >&2
+  exit 2
+fi
+
+if [[ ! -f "${ELLIPTIC_ROOT}/elliptic_txs_features.csv" ]]; then
+  echo "ERROR: Missing ${ELLIPTIC_ROOT}/elliptic_txs_features.csv" >&2
+  exit 2
+fi
+
+python3 - <<'PY'
+import importlib.util
+missing = [pkg for pkg in ("pandas", "torch", "torch_geometric") if importlib.util.find_spec(pkg) is None]
+if missing:
+    raise SystemExit("ERROR: Missing Python packages: " + ", ".join(missing))
+PY
 
 python3 elliptic_bitcoin_smp.py \
   --root "${ELLIPTIC_ROOT}" \

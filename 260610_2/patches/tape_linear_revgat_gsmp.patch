@@ -1,0 +1,1165 @@
+diff --git a/core/GNNs/RevGAT/linear_model.py b/core/GNNs/RevGAT/linear_model.py
+new file mode 100644
+index 0000000..cd2bbda
+--- /dev/null
++++ b/core/GNNs/RevGAT/linear_model.py
+@@ -0,0 +1,264 @@
++import copy
++
++import torch
++import torch.nn as nn
++import torch.nn.functional as F
++from dgl import function as fn
++from dgl.utils import expand_as_pair
++
++from .eff_gcn_modules.rev import memgcn as memgcn
++from .eff_gcn_modules.rev.rev_layer import SharedDropout
++from .model import ElementWiseLinear
++
++
++class LinearWeightedConv(nn.Module):
++    """Linear aggregation drop-in for RevGAT's attention layer.
++
++    DGL edges are source -> destination.  ``graph.edata["linear_weight"]`` is
++    the final scalar message weight for each edge in DGL edge ID order.
++    """
++
++    def __init__(
++        self,
++        in_feats,
++        out_feats,
++        num_heads=1,
++        edge_drop=0.0,
++        residual=False,
++        activation=None,
++        allow_zero_in_degree=False,
++        use_symmetric_norm=False,
++    ):
++        super().__init__()
++        self._num_heads = num_heads
++        self._in_src_feats, self._in_dst_feats = expand_as_pair(in_feats)
++        self._out_feats = out_feats
++        self._allow_zero_in_degree = allow_zero_in_degree
++        self._use_symmetric_norm = use_symmetric_norm
++        if isinstance(in_feats, tuple):
++            self.fc_src = nn.Linear(self._in_src_feats, out_feats * num_heads, bias=False)
++            self.fc_dst = nn.Linear(self._in_dst_feats, out_feats * num_heads, bias=False)
++        else:
++            self.fc = nn.Linear(self._in_src_feats, out_feats * num_heads, bias=False)
++        self.edge_drop = edge_drop
++        if residual:
++            self.res_fc = nn.Linear(self._in_dst_feats, num_heads * out_feats, bias=False)
++        else:
++            self.register_buffer("res_fc", None)
++        self.reset_parameters()
++        self._activation = activation
++
++    def reset_parameters(self):
++        gain = nn.init.calculate_gain("relu")
++        if hasattr(self, "fc"):
++            nn.init.xavier_normal_(self.fc.weight, gain=gain)
++        else:
++            nn.init.xavier_normal_(self.fc_src.weight, gain=gain)
++            nn.init.xavier_normal_(self.fc_dst.weight, gain=gain)
++        if isinstance(self.res_fc, nn.Linear):
++            nn.init.xavier_normal_(self.res_fc.weight, gain=gain)
++
++    def forward(self, graph, feat, perm=None):
++        with graph.local_scope():
++            if not self._allow_zero_in_degree and (graph.in_degrees() == 0).any():
++                raise ValueError("Graph has zero in-degree nodes; add self-loops or allow zero in-degree.")
++
++            if isinstance(feat, tuple):
++                h_src = feat[0]
++                h_dst = feat[1]
++                if not hasattr(self, "fc_src"):
++                    self.fc_src, self.fc_dst = self.fc, self.fc
++                feat_src = self.fc_src(h_src).view(-1, self._num_heads, self._out_feats)
++                feat_dst = self.fc_dst(h_dst).view(-1, self._num_heads, self._out_feats)
++            else:
++                h_src = feat
++                feat_src = self.fc(h_src).view(-1, self._num_heads, self._out_feats)
++                if graph.is_block:
++                    h_dst = h_src[: graph.number_of_dst_nodes()]
++                    feat_dst = feat_src[: graph.number_of_dst_nodes()]
++                else:
++                    h_dst = h_src
++                    feat_dst = feat_src
++
++            if self._use_symmetric_norm:
++                degs = graph.out_degrees().float().clamp(min=1).to(feat_src.device)
++                norm = torch.pow(degs, -0.5).reshape(degs.shape + (1,) * (feat_src.dim() - 1))
++                feat_src = feat_src * norm
++
++            if "linear_weight" not in graph.edata:
++                raise KeyError('Missing graph.edata["linear_weight"]. Build weights in DGLGNNTrainer first.')
++            weights = graph.edata["linear_weight"].to(device=feat_src.device, dtype=feat_src.dtype).view(-1)
++            weights = self._edge_dropout(graph, weights, perm)
++            graph.srcdata["ft"] = feat_src
++            graph.edata["w"] = weights.view(-1, 1, 1)
++            graph.update_all(fn.u_mul_e("ft", "w", "m"), fn.sum("m", "ft"))
++            rst = graph.dstdata["ft"]
++
++            if self._use_symmetric_norm:
++                degs = graph.in_degrees().float().clamp(min=1).to(rst.device)
++                norm = torch.pow(degs, 0.5).reshape(degs.shape + (1,) * (rst.dim() - 1))
++                rst = rst * norm
++
++            if self.res_fc is not None:
++                resval = self.res_fc(h_dst).view(h_dst.shape[0], -1, self._out_feats)
++                rst = rst + resval
++            if self._activation is not None:
++                rst = self._activation(rst)
++            return rst
++
++    def _edge_dropout(self, graph, weights, perm):
++        if not self.training or self.edge_drop <= 0:
++            return weights
++        if perm is None:
++            perm = torch.randperm(graph.number_of_edges(), device=weights.device)
++        else:
++            perm = perm.squeeze().to(weights.device)
++        bound = int(graph.number_of_edges() * self.edge_drop)
++        eids = perm[bound:]
++        dropped = torch.zeros_like(weights)
++        dropped[eids] = weights[eids]
++        _, dst = graph.edges(order="eid")
++        dst = dst.to(weights.device)
++        denom = torch.zeros(graph.number_of_dst_nodes(), dtype=weights.dtype, device=weights.device)
++        denom.scatter_add_(0, dst, dropped)
++        return dropped / denom[dst].clamp_min(torch.finfo(weights.dtype).eps)
++
++
++class LinearRevGATBlock(nn.Module):
++    def __init__(
++        self,
++        node_feats,
++        out_feats,
++        n_heads=1,
++        edge_drop=0.0,
++        residual=True,
++        activation=None,
++        allow_zero_in_degree=True,
++        use_symmetric_norm=False,
++    ):
++        super().__init__()
++        self.norm = nn.BatchNorm1d(n_heads * out_feats)
++        self.conv = LinearWeightedConv(
++            node_feats,
++            out_feats,
++            num_heads=n_heads,
++            edge_drop=edge_drop,
++            residual=residual,
++            activation=activation,
++            allow_zero_in_degree=allow_zero_in_degree,
++            use_symmetric_norm=use_symmetric_norm,
++        )
++        self.dropout = SharedDropout()
++
++    def forward(self, x, graph, dropout_mask=None, perm=None, efeat=None):
++        del efeat
++        if perm is not None:
++            perm = perm.squeeze()
++        out = self.norm(x)
++        out = F.relu(out)
++        if isinstance(self.dropout, SharedDropout):
++            self.dropout.set_mask(dropout_mask)
++        out = self.dropout(out)
++        return self.conv(graph, out, perm).flatten(1, -1)
++
++
++class LinearRevGAT(nn.Module):
++    """RevGAT shell with learned attention aggregation replaced by linear MP."""
++
++    def __init__(
++        self,
++        in_feats,
++        n_classes,
++        n_hidden,
++        n_layers,
++        n_heads,
++        activation,
++        dropout=0.0,
++        input_drop=0.0,
++        edge_drop=0.0,
++        use_symmetric_norm=False,
++        group=2,
++        input_norm=True,
++        use_pred=False,
++    ):
++        super().__init__()
++        self.in_feats = in_feats
++        self.n_hidden = n_hidden
++        self.n_classes = n_classes
++        self.n_layers = n_layers
++        self.num_heads = n_heads
++        self.group = group
++        self.use_pred = use_pred
++
++        if self.use_pred:
++            self.encoder = torch.nn.Embedding(n_classes + 1, n_hidden)
++        self.convs = nn.ModuleList()
++        self.norm = nn.BatchNorm1d(n_heads * n_hidden)
++        if input_norm:
++            self.input_norm = nn.BatchNorm1d(in_feats)
++        for layer_idx in range(n_layers):
++            in_hidden = n_heads * n_hidden if layer_idx > 0 else in_feats
++            out_hidden = n_hidden if layer_idx < n_layers - 1 else n_classes
++            num_heads = n_heads if layer_idx < n_layers - 1 else 1
++            if layer_idx == 0 or layer_idx == n_layers - 1:
++                self.convs.append(
++                    LinearWeightedConv(
++                        in_hidden,
++                        out_hidden,
++                        num_heads=num_heads,
++                        edge_drop=edge_drop,
++                        use_symmetric_norm=use_symmetric_norm,
++                        residual=True,
++                    )
++                )
++            else:
++                blocks = nn.ModuleList()
++                block = LinearRevGATBlock(
++                    in_hidden // group,
++                    out_hidden // group,
++                    n_heads=num_heads,
++                    edge_drop=edge_drop,
++                    use_symmetric_norm=use_symmetric_norm,
++                    residual=True,
++                )
++                for group_idx in range(self.group):
++                    blocks.append(block if group_idx == 0 else copy.deepcopy(block))
++                invertible_module = memgcn.GroupAdditiveCoupling(blocks, group=self.group)
++                conv = memgcn.InvertibleModuleWrapper(fn=invertible_module, keep_input=False)
++                self.convs.append(conv)
++
++        self.bias_last = ElementWiseLinear(n_classes, weight=False, bias=True)
++        self.input_drop = nn.Dropout(input_drop)
++        self.dropout = dropout
++        self.dp_last = nn.Dropout(dropout)
++        self.activation = activation
++
++    def forward(self, graph, feat, output_hidden_layer=None):
++        del output_hidden_layer
++        h = feat
++        if self.use_pred:
++            h = self.encoder(h)
++            h = torch.flatten(h, start_dim=1)
++        if hasattr(self, "input_norm"):
++            h = self.input_norm(h)
++        h = self.input_drop(h)
++        h = self.activation(h)
++
++        perms = [torch.randperm(graph.number_of_edges(), device=graph.device) for _ in range(self.n_layers)]
++        h = self.convs[0](graph, h, perms[0]).flatten(1, -1)
++
++        mask = torch.zeros_like(h).bernoulli_(1 - self.dropout)
++        mask = mask.requires_grad_(False) / max(torch.finfo(h.dtype).eps, 1 - self.dropout)
++
++        for layer_idx in range(1, self.n_layers - 1):
++            graph.requires_grad = False
++            perm = torch.stack([perms[layer_idx]] * self.group, dim=1)
++            h = self.convs[layer_idx](h, graph, mask, perm)
++
++        h = self.norm(h)
++        h = self.activation(h)
++        h = self.dp_last(h)
++        h = self.convs[-1](graph, h, perms[-1])
++        h = h.mean(1)
++        h = self.bias_last(h)
++        return h
+diff --git a/core/GNNs/dgl_gnn_trainer.py b/core/GNNs/dgl_gnn_trainer.py
+index d35a3a9..db854bc 100644
+--- a/core/GNNs/dgl_gnn_trainer.py
++++ b/core/GNNs/dgl_gnn_trainer.py
+@@ -1,17 +1,63 @@
+-import torch
++import csv
++import json
++import os
++from datetime import datetime
++from pathlib import Path
+ from time import time
++
+ import numpy as np
++import torch
+ 
++from core.GNNs.RevGAT.linear_model import LinearRevGAT
+ from core.GNNs.RevGAT.model import RevGAT
+ from core.GNNs.gnn_utils import EarlyStopping
+ from core.data_utils.load import load_data, load_gpt_preds
++from core.gsmp import cached_linear_message_weight
+ from core.utils import time_logger
+ 
+-LOG_FREQ = 10
++
++EPOCH_FIELDS = [
++    "timestamp",
++    "model",
++    "feature_type",
++    "use_gsmp",
++    "gsmp_norm",
++    "seed",
++    "epoch",
++    "train_acc",
++    "val_acc",
++    "test_acc",
++    "best_val",
++    "test_at_best_val",
++    "best_epoch",
++    "best_raw_test",
++    "best_raw_test_epoch",
++    "loss",
++    "lr",
++    "elapsed_seconds",
++    "peak_gpu_mem_mb",
++]
++
++SEED_FIELDS = [
++    "timestamp",
++    "model",
++    "feature_type",
++    "use_gsmp",
++    "gsmp_norm",
++    "seed",
++    "best_val",
++    "test_at_best_val",
++    "best_epoch",
++    "best_raw_test",
++    "best_raw_test_epoch",
++    "runtime_seconds",
++    "peak_gpu_mem_mb",
++]
+ 
+ 
+ class DGLGNNTrainer():
+     def __init__(self, cfg, feature_type):
++        self.cfg = cfg
+         self.seed = cfg.seed
+         self.device = cfg.device
+         self.dataset_name = cfg.dataset
+@@ -24,6 +70,21 @@ class DGLGNNTrainer():
+         self.feature_type = feature_type
+         self.epochs = cfg.gnn.train.epochs
+         self.weight_decay = cfg.gnn.train.weight_decay
++        self.log_every = max(1, int(cfg.gnn.train.log_every))
++        self.eval_every = max(1, int(cfg.gnn.train.eval_every))
++        self.use_gsmp = bool(cfg.gnn.model.use_gsmp)
++        self.gsmp_norm = str(cfg.gnn.model.gsmp_norm)
++        self.gsmp_cache_dir = str(cfg.gnn.model.gsmp_cache_dir)
++        self.graph_direction = str(cfg.gnn.model.graph_direction)
++        self.run_dir = self._init_run_dir(cfg)
++        self.best_valid = float("-inf")
++        self.test_at_best = float("-inf")
++        self.best_epoch = -1
++        self.best_raw_test = float("-inf")
++        self.best_raw_test_epoch = -1
++        self.last_logits = None
++        self.train_start = None
++        self.seed_summary = None
+ 
+         self.n_heads = 3
+         self.input_drop = 0.25
+@@ -33,9 +94,10 @@ class DGLGNNTrainer():
+         self.use_norm = False
+         self.group = 2
+         self.input_norm = 'T'
+-        self.seed = cfg.seed
+ 
+-        # ! Load data
++        if self.use_gsmp and self.gnn_model_name not in {"LinearRevGAT", "RevGATLinear"}:
++            raise ValueError("GSMP is only valid for LinearRevGAT/RevGATLinear, not attention-based RevGAT.")
++
+         dataset, num_classes = load_data(self.dataset_name, use_dgl=True,
+                                          use_text=False, seed=self.seed)
+         data = dataset[0]
+@@ -48,7 +110,6 @@ class DGLGNNTrainer():
+         self.num_nodes = data.num_nodes()
+         self.num_classes = num_classes
+ 
+-        # ! Init gnn feature
+         topk = 3 if self.dataset_name == 'pubmed' else 5
+         if self.feature_type == 'ogb':
+             print("Loading OGB features...")
+@@ -81,12 +142,13 @@ class DGLGNNTrainer():
+             features = data.ndata['feat']
+ 
+         self.features = features.to(self.device)
++        self._attach_linear_weights_if_needed(data)
+         self.data = data.to(self.device)
+ 
+-        # ! Trainer init
+         use_pred = self.feature_type == 'P'
++        in_feats = self.hidden_dim * topk if use_pred else self.features.shape[1]
+         if self.gnn_model_name == "RevGAT":
+-            self.model = RevGAT(in_feats=self.hidden_dim*topk if use_pred else self.features.shape[1],
++            self.model = RevGAT(in_feats=in_feats,
+                                 n_classes=self.num_classes,
+                                 n_hidden=self.hidden_dim,
+                                 n_layers=self.num_layers,
+@@ -102,8 +164,23 @@ class DGLGNNTrainer():
+                                 input_norm=self.input_norm == 'T',
+                                 use_pred=use_pred
+                                 ).to(self.device)
++        elif self.gnn_model_name in {"LinearRevGAT", "RevGATLinear"}:
++            self.model = LinearRevGAT(in_feats=in_feats,
++                                      n_classes=self.num_classes,
++                                      n_hidden=self.hidden_dim,
++                                      n_layers=self.num_layers,
++                                      n_heads=self.n_heads,
++                                      activation=torch.nn.Mish(),
++                                      dropout=self.dropout,
++                                      input_drop=self.input_drop,
++                                      edge_drop=self.edge_drop,
++                                      use_symmetric_norm=self.use_norm,
++                                      group=self.group,
++                                      input_norm=self.input_norm == 'T',
++                                      use_pred=use_pred
++                                      ).to(self.device)
+         else:
+-            exit(f'Error: model {self.gnn_model_name} not supported')
++            exit(f'Error: model {self.gnn_model_name} not supported by DGLGNNTrainer')
+ 
+         self.optimizer = torch.optim.RMSprop(
+             self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+@@ -112,7 +189,7 @@ class DGLGNNTrainer():
+                                for p in self.model.parameters() if p.requires_grad)
+ 
+         print(f"\nNumber of parameters: {trainable_params}")
+-        self.ckpt = f"output/{self.dataset_name}/{self.gnn_model_name}.pt"
++        self.ckpt = f"output/{self.dataset_name}/{self.gnn_model_name}_{self.feature_type}_seed{self.seed}.pt"
+         self.stopper = EarlyStopping(
+             patience=cfg.gnn.train.early_stop, path=self.ckpt) if cfg.gnn.train.early_stop > 0 else None
+         self.loss_func = torch.nn.CrossEntropyLoss(reduction='mean')
+@@ -124,15 +201,66 @@ class DGLGNNTrainer():
+              "y_true": labels.view(-1, 1)}
+         )["acc"]
+ 
++    def _init_run_dir(self, cfg):
++        run_id = str(cfg.gnn.train.run_id) if cfg.gnn.train.run_id else ""
++        if not run_id:
++            run_id = os.environ.get("TAPE_GSMP_RUN_ID", "")
++        if not run_id:
++            run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
++            os.environ["TAPE_GSMP_RUN_ID"] = run_id
++        run_dir = Path(str(cfg.gnn.train.result_root)) / run_id
++        run_dir.mkdir(parents=True, exist_ok=True)
++        config_path = run_dir / "config.json"
++        if not config_path.exists():
++            with config_path.open("w", encoding="utf-8") as handle:
++                json.dump(self._cfg_to_dict(cfg), handle, indent=2, sort_keys=True)
++                handle.write("\n")
++        return run_dir
++
++    def _cfg_to_dict(self, node):
++        if hasattr(node, "items"):
++            return {key: self._cfg_to_dict(value) for key, value in node.items()}
++        return node
++
++    def _append_csv(self, path, row, fields):
++        path = Path(path)
++        path.parent.mkdir(parents=True, exist_ok=True)
++        exists = path.exists()
++        with path.open("a", newline="", encoding="utf-8") as handle:
++            writer = csv.DictWriter(handle, fieldnames=fields)
++            if not exists:
++                writer.writeheader()
++            writer.writerow({field: row.get(field, "") for field in fields})
++
++    def _attach_linear_weights_if_needed(self, data):
++        if self.gnn_model_name not in {"LinearRevGAT", "RevGATLinear"}:
++            return
++        if "year" not in data.ndata:
++            raise KeyError('LinearRevGAT+GSMP requires node publication years in data.ndata["year"].')
++        src, dst = data.edges(order="eid")
++        edge_index = torch.stack([src.cpu().long(), dst.cpu().long()], dim=0)
++        weight, stats = cached_linear_message_weight(
++            edge_index=edge_index,
++            node_year=data.ndata["year"].cpu().long().view(-1),
++            num_nodes=data.num_nodes(),
++            use_gsmp=self.use_gsmp,
++            mode=self.gsmp_norm,
++            cache_dir=self.gsmp_cache_dir,
++            dataset=self.dataset_name,
++            graph_direction=self.graph_direction,
++            feature_type=self.feature_type,
++            device=None,
++        )
++        data.edata["linear_weight"] = weight
++        self.edge_weight_stats = stats
++
+     def _forward(self, *cfg):
+-        logits = self.model(*cfg)  # small-graph
++        logits = self.model(*cfg)
+         return logits
+ 
+     def _train(self):
+-        # ! Shared
+         self.model.train()
+         self.optimizer.zero_grad()
+-        # ! Specific
+         logits = self._forward(self.data, self.features)
+         loss = self.loss_func(
+             logits[self.train_mask], self.y[self.train_mask])
+@@ -143,7 +271,7 @@ class DGLGNNTrainer():
+ 
+         return loss.item(), train_acc
+ 
+-    @ torch.no_grad()
++    @torch.no_grad()
+     def _evaluate(self):
+         self.model.eval()
+         logits = self._forward(self.data, self.features)
+@@ -153,37 +281,192 @@ class DGLGNNTrainer():
+             logits[self.test_mask], self.y[self.test_mask])
+         return val_acc, test_acc, logits
+ 
++    def _peak_mem_mb(self):
++        if not torch.cuda.is_available():
++            return 0.0
++        try:
++            return float(torch.cuda.max_memory_allocated(self.device) / (1024 ** 2))
++        except Exception:
++            return 0.0
++
++    def _update_best(self, epoch, val_acc, test_acc, logits):
++        if val_acc > self.best_valid:
++            self.best_valid = float(val_acc)
++            self.test_at_best = float(test_acc)
++            self.best_epoch = int(epoch)
++            self.last_logits = logits.detach().cpu()
++            if bool(self.cfg.gnn.train.save_best):
++                torch.save(self.model.state_dict(), self.ckpt)
++        if test_acc > self.best_raw_test:
++            self.best_raw_test = float(test_acc)
++            self.best_raw_test_epoch = int(epoch)
++
++    def _log_result(self, epoch, loss, train_acc, val_acc, test_acc):
++        elapsed = time() - self.train_start
++        lr = self.optimizer.param_groups[0]["lr"]
++        peak = self._peak_mem_mb()
++        row = {
++            "timestamp": datetime.now().isoformat(timespec="seconds"),
++            "model": self.gnn_model_name,
++            "feature_type": self.feature_type,
++            "use_gsmp": self.use_gsmp,
++            "gsmp_norm": self.gsmp_norm,
++            "seed": self.seed,
++            "epoch": epoch,
++            "train_acc": train_acc,
++            "val_acc": val_acc,
++            "test_acc": test_acc,
++            "best_val": self.best_valid,
++            "test_at_best_val": self.test_at_best,
++            "best_epoch": self.best_epoch,
++            "best_raw_test": self.best_raw_test,
++            "best_raw_test_epoch": self.best_raw_test_epoch,
++            "loss": loss,
++            "lr": lr,
++            "elapsed_seconds": elapsed,
++            "peak_gpu_mem_mb": peak,
++        }
++        self._append_csv(self.run_dir / "epoch_logs.csv", row, EPOCH_FIELDS)
++        print(
++            "[RESULT] "
++            f"model={self.gnn_model_name} use_gsmp={self.use_gsmp} gsmp_norm={self.gsmp_norm} "
++            f"seed={self.seed} epoch={epoch:03d} val_acc={val_acc:.4f} test_acc={test_acc:.4f} "
++            f"best_val={self.best_valid:.4f} test_at_best_val={self.test_at_best:.4f} "
++            f"lr={lr:.6g} time={elapsed:.1f}s peak_gpu_mem_mb={peak:.1f}",
++            flush=True,
++        )
++
+     @time_logger
+     def train(self):
+-        # ! Training
+-        for epoch in range(self.epochs):
+-            if epoch <= 50 and self.gnn_model_name == 'RevGAT':
++        self.train_start = time()
++        if torch.cuda.is_available():
++            try:
++                torch.cuda.reset_peak_memory_stats(self.device)
++            except Exception:
++                pass
++        for epoch0 in range(self.epochs):
++            epoch = epoch0 + 1
++            if epoch <= 50 and self.gnn_model_name in {'RevGAT', 'LinearRevGAT', 'RevGATLinear'}:
+                 for param_group in self.optimizer.param_groups:
+                     param_group['lr'] = self.lr * epoch / 50
+             t0, es_str = time(), ''
+             loss, train_acc = self._train()
+-            val_acc, test_acc, _ = self._evaluate()
++            should_eval = epoch == 1 or epoch == self.epochs or epoch % self.eval_every == 0
++            if not should_eval:
++                if epoch % self.log_every == 0:
++                    print(
++                        f'Epoch: {epoch}, Time: {time()-t0:.4f}, Loss: {loss:.4f}, TrainAcc: {train_acc:.4f}',
++                        flush=True,
++                    )
++                continue
++            val_acc, test_acc, logits = self._evaluate()
++            self._update_best(epoch, val_acc, test_acc, logits)
+             if self.stopper is not None:
+                 es_flag, es_str = self.stopper.step(val_acc, self.model, epoch)
+                 if es_flag:
+                     print(
+                         f'Early stopped, loading model from epoch-{self.stopper.best_epoch}')
+                     break
+-            if epoch % LOG_FREQ == 0:
++            self._log_result(epoch, loss, train_acc, val_acc, test_acc)
++            if epoch % self.log_every == 0:
+                 print(
+-                    f'Epoch: {epoch}, Time: {time()-t0:.4f}, Loss: {loss:.4f}, TrainAcc: {train_acc:.4f}, ValAcc: {val_acc:.4f}, ES: {es_str}')
++                    f'Epoch: {epoch}, Time: {time()-t0:.4f}, Loss: {loss:.4f}, TrainAcc: {train_acc:.4f}, ValAcc: {val_acc:.4f}, ES: {es_str}',
++                    flush=True,
++                )
+ 
+-        # ! Finished training, load checkpoints
+-        if self.stopper is not None:
++        if self.stopper is not None and Path(self.stopper.path).exists():
+             self.model.load_state_dict(torch.load(self.stopper.path))
+-
++        self._write_seed_summary()
+         return self.model
+ 
+-    @ torch.no_grad()
++    def _write_seed_summary(self):
++        runtime = time() - self.train_start if self.train_start is not None else 0.0
++        row = {
++            "timestamp": datetime.now().isoformat(timespec="seconds"),
++            "model": self.gnn_model_name,
++            "feature_type": self.feature_type,
++            "use_gsmp": self.use_gsmp,
++            "gsmp_norm": self.gsmp_norm,
++            "seed": self.seed,
++            "best_val": self.best_valid,
++            "test_at_best_val": self.test_at_best,
++            "best_epoch": self.best_epoch,
++            "best_raw_test": self.best_raw_test,
++            "best_raw_test_epoch": self.best_raw_test_epoch,
++            "runtime_seconds": runtime,
++            "peak_gpu_mem_mb": self._peak_mem_mb(),
++        }
++        self.seed_summary = row
++        self._append_csv(self.run_dir / "seed_summary.csv", row, SEED_FIELDS)
++        self._update_final_summary()
++        print(
++            "[SEED_SUMMARY] "
++            f"model={self.gnn_model_name} seed={self.seed} best_val={self.best_valid:.4f} "
++            f"test_at_best_val={self.test_at_best:.4f} best_epoch={self.best_epoch} "
++            f"best_raw_test={self.best_raw_test:.4f}",
++            flush=True,
++        )
++
++    def _update_final_summary(self):
++        summary_path = self.run_dir / "seed_summary.csv"
++        rows = []
++        if summary_path.exists():
++            with summary_path.open("r", encoding="utf-8") as handle:
++                rows = list(csv.DictReader(handle))
++        key_rows = [
++            row for row in rows
++            if row.get("model") == self.gnn_model_name
++            and row.get("feature_type") == self.feature_type
++            and row.get("use_gsmp") == str(self.use_gsmp)
++            and row.get("gsmp_norm") == self.gsmp_norm
++        ]
++        if not key_rows:
++            return
++        def values(name):
++            return np.array([float(row[name]) for row in key_rows], dtype=np.float64)
++        final = {
++            "model": self.gnn_model_name,
++            "feature_type": self.feature_type,
++            "use_gsmp": self.use_gsmp,
++            "gsmp_norm": self.gsmp_norm,
++            "seeds": [int(row["seed"]) for row in key_rows],
++            "val_mean": float(values("best_val").mean()),
++            "val_std": float(values("best_val").std(ddof=1)) if len(key_rows) > 1 else 0.0,
++            "test_at_best_val_mean": float(values("test_at_best_val").mean()),
++            "test_at_best_val_std": float(values("test_at_best_val").std(ddof=1)) if len(key_rows) > 1 else 0.0,
++            "best_raw_test_mean": float(values("best_raw_test").mean()),
++            "best_raw_test_std": float(values("best_raw_test").std(ddof=1)) if len(key_rows) > 1 else 0.0,
++            "best_epoch_mean": float(values("best_epoch").mean()),
++            "runtime_mean": float(values("runtime_seconds").mean()),
++        }
++        with (self.run_dir / "final_summary.json").open("w", encoding="utf-8") as handle:
++            json.dump(final, handle, indent=2, sort_keys=True)
++            handle.write("\n")
++        print(
++            "[FINAL] "
++            f"model={self.gnn_model_name} seeds={len(key_rows)} "
++            f"val_mean={final['val_mean']:.4f} val_std={final['val_std']:.4f} "
++            f"test_at_best_val_mean={final['test_at_best_val_mean']:.4f} "
++            f"test_at_best_val_std={final['test_at_best_val_std']:.4f}",
++            flush=True,
++        )
++
++    @torch.no_grad()
+     def eval_and_save(self):
+-        torch.save(self.model.state_dict(), self.ckpt)
++        if bool(self.cfg.gnn.train.save_best) and Path(self.ckpt).exists():
++            self.model.load_state_dict(torch.load(self.ckpt))
++        else:
++            torch.save(self.model.state_dict(), self.ckpt)
+         val_acc, test_acc, logits = self._evaluate()
+         print(
+             f'[{self.gnn_model_name} + {self.feature_type}] ValAcc: {val_acc:.4f}, TestAcc: {test_acc:.4f}\n')
+-        res = {'val_acc': val_acc, 'test_acc': test_acc}
++        res = {
++            'val_acc': val_acc,
++            'test_acc': test_acc,
++            'best_val': self.best_valid,
++            'test_at_best_val': self.test_at_best,
++            'best_epoch': self.best_epoch,
++            'best_raw_test': self.best_raw_test,
++            'best_raw_test_epoch': self.best_raw_test_epoch,
++        }
+         return logits, res
+diff --git a/core/GNNs/ensemble_trainer.py b/core/GNNs/ensemble_trainer.py
+index 4952632..0ddbd1d 100644
+--- a/core/GNNs/ensemble_trainer.py
++++ b/core/GNNs/ensemble_trainer.py
+@@ -1,3 +1,7 @@
++import csv
++from datetime import datetime
++from pathlib import Path
++
+ import torch
+ 
+ from core.GNNs.gnn_trainer import GNNTrainer
+@@ -36,7 +40,7 @@ class EnsembleTrainer():
+              "y_true": labels.view(-1, 1)}
+         )["acc"]
+ 
+-        if cfg.gnn.model.name == 'RevGAT':
++        if cfg.gnn.model.name in ['RevGAT', 'LinearRevGAT', 'RevGATLinear']:
+             self.TRAINER = DGLGNNTrainer
+         else:
+             self.TRAINER = GNNTrainer
+@@ -60,6 +64,7 @@ class EnsembleTrainer():
+     def train(self):
+         all_pred = []
+         all_acc = {}
++        trainers = []
+         feature_types = self.feature_type.split('_')
+         for feature_type in feature_types:
+             trainer = self.TRAINER(self.cfg, feature_type)
+@@ -67,7 +72,57 @@ class EnsembleTrainer():
+             pred, acc = trainer.eval_and_save()
+             all_pred.append(pred)
+             all_acc[feature_type] = acc
++            trainers.append(trainer)
+         pred_ensemble = sum(all_pred)/len(all_pred)
+         acc_ensemble = self.eval(pred_ensemble)
+         all_acc['ensemble'] = acc_ensemble
++        self._write_ensemble_summary(acc_ensemble, trainers)
+         return all_acc
++
++    def _write_ensemble_summary(self, acc, trainers):
++        if not trainers or not hasattr(trainers[-1], "run_dir"):
++            return
++        run_dir = Path(trainers[-1].run_dir)
++        row = {
++            "timestamp": datetime.now().isoformat(timespec="seconds"),
++            "model": self.gnn_model_name,
++            "feature_type": "ensemble",
++            "use_gsmp": bool(self.cfg.gnn.model.use_gsmp),
++            "gsmp_norm": self.cfg.gnn.model.gsmp_norm,
++            "seed": self.cfg.seed,
++            "best_val": acc["val_acc"],
++            "test_at_best_val": acc["test_acc"],
++            "best_epoch": "",
++            "best_raw_test": acc["test_acc"],
++            "best_raw_test_epoch": "",
++            "runtime_seconds": sum(float(getattr(t, "seed_summary", {}).get("runtime_seconds", 0.0)) for t in trainers),
++            "peak_gpu_mem_mb": max(float(getattr(t, "seed_summary", {}).get("peak_gpu_mem_mb", 0.0)) for t in trainers),
++        }
++        fields = [
++            "timestamp",
++            "model",
++            "feature_type",
++            "use_gsmp",
++            "gsmp_norm",
++            "seed",
++            "best_val",
++            "test_at_best_val",
++            "best_epoch",
++            "best_raw_test",
++            "best_raw_test_epoch",
++            "runtime_seconds",
++            "peak_gpu_mem_mb",
++        ]
++        path = run_dir / "seed_summary.csv"
++        exists = path.exists()
++        with path.open("a", newline="", encoding="utf-8") as handle:
++            writer = csv.DictWriter(handle, fieldnames=fields)
++            if not exists:
++                writer.writeheader()
++            writer.writerow(row)
++        print(
++            "[SEED_SUMMARY] "
++            f"model={self.gnn_model_name} feature=ensemble seed={self.cfg.seed} "
++            f"best_val={acc['val_acc']:.4f} test_at_best_val={acc['test_acc']:.4f}",
++            flush=True,
++        )
+diff --git a/core/GNNs/gnn_utils.py b/core/GNNs/gnn_utils.py
+index bd5f9f7..c34c2e1 100644
+--- a/core/GNNs/gnn_utils.py
++++ b/core/GNNs/gnn_utils.py
+@@ -5,7 +5,7 @@ import torch
+ 
+ 
+ def get_gnn_trainer(model):
+-    if model in ['GCN', 'RevGAT', 'SAGE']:
++    if model in ['GCN', 'RevGAT', 'LinearRevGAT', 'RevGATLinear', 'SAGE']:
+         from core.GNNs.gnn_trainer import GNNTrainer
+     else:
+         raise ValueError(f'GNN-Trainer for model {model} is not defined')
+diff --git a/core/config.py b/core/config.py
+index be263fc..0bd0ba9 100644
+--- a/core/config.py
++++ b/core/config.py
+@@ -29,6 +29,12 @@ def set_cfg(cfg):
+     cfg.gnn.model.num_layers = 4
+     # Hidden size of the model
+     cfg.gnn.model.hidden_dim = 128
++    # LinearRevGAT optional GSMP switches. GSMP is intentionally only enabled
++    # for LinearRevGAT, never for attention-based RevGAT.
++    cfg.gnn.model.use_gsmp = False
++    cfg.gnn.model.gsmp_norm = 'scale_preserve'
++    cfg.gnn.model.gsmp_cache_dir = 'cache/gsmp'
++    cfg.gnn.model.graph_direction = 'dgl_bidirected_self_loop'
+ 
+     # ------------------------------------------------------------------------ #
+     # GNN Training options
+@@ -48,6 +54,13 @@ def set_cfg(cfg):
+     cfg.gnn.train.wd = 0.0
+     # Dropout rate
+     cfg.gnn.train.dropout = 0.0
++    # Tail-friendly logging and machine-readable result output
++    cfg.gnn.train.log_every = 10
++    cfg.gnn.train.eval_every = 10
++    cfg.gnn.train.save_best = True
++    cfg.gnn.train.report_test_at_best_val = True
++    cfg.gnn.train.result_root = 'results/tape_revgat_gsmp'
++    cfg.gnn.train.run_id = ''
+ 
+     # ------------------------------------------------------------------------ #
+     # LM Model options
+diff --git a/core/data_utils/dataset.py b/core/data_utils/dataset.py
+index bfbd881..bb74026 100644
+--- a/core/data_utils/dataset.py
++++ b/core/data_utils/dataset.py
+@@ -36,6 +36,10 @@ class CustomDGLDataset(TorchDataset):
+         if data.x is not None:
+             g.ndata['feat'] = torch.FloatTensor(data.x)
+         g.ndata['label'] = torch.LongTensor(data.y)
++        if hasattr(data, 'node_year') and data.node_year is not None:
++            g.ndata['year'] = torch.LongTensor(data.node_year).view(-1)
++        elif hasattr(data, 'year') and data.year is not None:
++            g.ndata['year'] = torch.LongTensor(data.year).view(-1)
+         return g
+ 
+     @property
+diff --git a/core/data_utils/load_arxiv.py b/core/data_utils/load_arxiv.py
+index ab97819..3cea76e 100644
+--- a/core/data_utils/load_arxiv.py
++++ b/core/data_utils/load_arxiv.py
+@@ -2,12 +2,36 @@ from ogb.nodeproppred import PygNodePropPredDataset
+ import torch_geometric.transforms as T
+ import torch
+ import pandas as pd
++import os
++from contextlib import contextmanager
++
++
++@contextmanager
++def torch_load_ogb_compat():
++    """Allow trusted OGB PyG processed files under PyTorch >= 2.6.
++
++    OGB 1.3.x calls torch.load without weights_only=False. PyTorch 2.6 changed
++    that default to True, which breaks loading torch_geometric Data objects.
++    """
++    original_load = torch.load
++
++    def compatible_load(*args, **kwargs):
++        kwargs.setdefault("weights_only", False)
++        return original_load(*args, **kwargs)
++
++    torch.load = compatible_load
++    try:
++        yield
++    finally:
++        torch.load = original_load
+ 
+ 
+ def get_raw_text_arxiv(use_text=False, seed=0):
+ 
+-    dataset = PygNodePropPredDataset(
+-        name='ogbn-arxiv', transform=T.ToSparseTensor())
++    ogb_root = os.environ.get('OGB_DATA_ROOT', 'dataset')
++    with torch_load_ogb_compat():
++        dataset = PygNodePropPredDataset(
++            name='ogbn-arxiv', root=ogb_root, transform=T.ToSparseTensor())
+     data = dataset[0]
+ 
+     idx_splits = dataset.get_idx_split()
+diff --git a/core/gsmp.py b/core/gsmp.py
+new file mode 100644
+index 0000000..64e9ae4
+--- /dev/null
++++ b/core/gsmp.py
+@@ -0,0 +1,208 @@
++"""GSMP edge-weight preprocessing for DGL/PyTorch edge-index graphs.
++
++The message-passing convention is source -> destination.  For each edge
++``src -> dst``, the timestamp used by GSMP is ``node_year[src]``.
++"""
++
++from __future__ import annotations
++
++import json
++from pathlib import Path
++from typing import Dict, Optional, Tuple
++
++import torch
++
++
++SUPPORTED_MODES = {"strict", "scale_preserve"}
++
++
++def _as_cpu_long(tensor: torch.Tensor, name: str) -> torch.Tensor:
++    if not torch.is_tensor(tensor):
++        raise TypeError(f"{name} must be a torch.Tensor")
++    return tensor.detach().cpu().long()
++
++
++def _stats(weight: torch.Tensor, node_year: torch.Tensor) -> Dict[str, float | int]:
++    weight_float = weight.detach().cpu().float()
++    return {
++        "num_edges": int(weight_float.numel()),
++        "num_unique_years": int(torch.unique(node_year.detach().cpu().long()).numel()),
++        "min": float(weight_float.min().item()) if weight_float.numel() else 0.0,
++        "max": float(weight_float.max().item()) if weight_float.numel() else 0.0,
++        "mean": float(weight_float.mean().item()) if weight_float.numel() else 0.0,
++        "std": float(weight_float.std(unbiased=False).item()) if weight_float.numel() else 0.0,
++    }
++
++
++def compute_gsmp_edge_weight(
++    edge_index: torch.Tensor,
++    node_year: torch.Tensor,
++    num_nodes: int,
++    mode: str = "scale_preserve",
++    device: Optional[torch.device | str] = None,
++) -> torch.Tensor:
++    """Compute GSMP weights for directed edges.
++
++    Args:
++        edge_index: Tensor with shape [2, num_edges], where row 0 is source
++            node IDs and row 1 is destination node IDs.
++        node_year: Tensor with one publication year per node.
++        num_nodes: Number of graph nodes.
++        mode: ``strict`` or ``scale_preserve``.
++        device: Optional output device. Computation itself stays on CPU.
++
++    ``strict`` returns the empirical GSMP aggregation weight:
++
++        1 / (num_unique_neighbor_times[dst] * count[dst, node_year[src]])
++
++    ``scale_preserve`` returns the GSMP scale factor:
++
++        (1 / count[dst, node_year[src]]) / mean_base_for_target[dst]
++
++    The caller should multiply the ``scale_preserve`` output by the layer's
++    ordinary aggregation normalization, for example ``1 / in_degree[dst]``.
++    """
++
++    if mode not in SUPPORTED_MODES:
++        raise ValueError(f"Unsupported GSMP mode {mode!r}; choose one of {sorted(SUPPORTED_MODES)}")
++    edge_index = _as_cpu_long(edge_index, "edge_index")
++    node_year = _as_cpu_long(node_year, "node_year").view(-1)
++    if edge_index.dim() != 2 or edge_index.size(0) != 2:
++        raise ValueError("edge_index must have shape [2, num_edges]")
++    if node_year.numel() < num_nodes:
++        raise ValueError(f"node_year has {node_year.numel()} values for num_nodes={num_nodes}")
++
++    src, dst = edge_index[0], edge_index[1]
++    if src.numel() == 0:
++        return torch.empty(0, dtype=torch.float32, device=device)
++    if int(src.max().item()) >= num_nodes or int(dst.max().item()) >= num_nodes:
++        raise ValueError("edge_index contains node IDs >= num_nodes")
++    if int(src.min().item()) < 0 or int(dst.min().item()) < 0:
++        raise ValueError("edge_index contains negative node IDs")
++
++    _, year_id = torch.unique(node_year[:num_nodes], sorted=True, return_inverse=True)
++    num_years = int(year_id.max().item()) + 1 if year_id.numel() else 0
++    edge_year_id = year_id[src]
++
++    key = dst * num_years + edge_year_id
++    counts = torch.bincount(key, minlength=num_nodes * num_years).float()
++    edge_counts = counts[key].clamp_min(1.0)
++    base = 1.0 / edge_counts
++
++    if mode == "strict":
++        present = counts.view(num_nodes, num_years) > 0
++        num_present_years = present.sum(dim=1).float().clamp_min(1.0)
++        weight = base / num_present_years[dst]
++    else:
++        sum_base_per_dst = torch.zeros(num_nodes, dtype=torch.float32)
++        sum_base_per_dst.scatter_add_(0, dst, base)
++        deg = torch.bincount(dst, minlength=num_nodes).float().clamp_min(1.0)
++        mean_base = sum_base_per_dst / deg
++        weight = base / mean_base[dst].clamp_min(1e-12)
++
++    if not torch.isfinite(weight).all():
++        raise FloatingPointError("GSMP edge weights contain NaN or Inf")
++    return weight.to(device=device, dtype=torch.float32)
++
++
++def compute_mean_edge_weight(edge_index: torch.Tensor, num_nodes: int, device: Optional[torch.device | str] = None) -> torch.Tensor:
++    """Return ordinary incoming mean aggregation weights, 1 / in_degree[dst]."""
++
++    edge_index = _as_cpu_long(edge_index, "edge_index")
++    dst = edge_index[1]
++    if dst.numel() == 0:
++        return torch.empty(0, dtype=torch.float32, device=device)
++    deg = torch.bincount(dst, minlength=num_nodes).float().clamp_min(1.0)
++    weight = 1.0 / deg[dst]
++    if not torch.isfinite(weight).all():
++        raise FloatingPointError("Mean edge weights contain NaN or Inf")
++    return weight.to(device=device, dtype=torch.float32)
++
++
++def build_linear_message_weight(
++    edge_index: torch.Tensor,
++    node_year: torch.Tensor,
++    num_nodes: int,
++    use_gsmp: bool,
++    mode: str = "scale_preserve",
++    device: Optional[torch.device | str] = None,
++) -> Tuple[torch.Tensor, Dict[str, float | int | str | bool]]:
++    """Build the final message weight consumed by LinearRevGAT.
++
++    Without GSMP this returns ordinary mean aggregation weights.
++
++    With ``mode='strict'`` this returns strict GSMP weights directly.
++
++    With ``mode='scale_preserve'`` this returns ``mean_weight * gsmp_scale``.
++    This keeps target-level aggregation magnitude comparable to mean
++    aggregation while still reweighting neighbor-year groups by inverse
++    frequency.
++    """
++
++    cpu_edge_index = _as_cpu_long(edge_index, "edge_index")
++    cpu_year = _as_cpu_long(node_year, "node_year").view(-1)
++    mean_weight = compute_mean_edge_weight(cpu_edge_index, num_nodes)
++    if use_gsmp:
++        gsmp_weight = compute_gsmp_edge_weight(cpu_edge_index, cpu_year, num_nodes, mode=mode)
++        final_weight = gsmp_weight if mode == "strict" else mean_weight * gsmp_weight
++    else:
++        final_weight = mean_weight
++
++    if not torch.isfinite(final_weight).all():
++        raise FloatingPointError("Final message weights contain NaN or Inf")
++    stats = _stats(final_weight, cpu_year)
++    stats.update(
++        {
++            "use_gsmp": bool(use_gsmp),
++            "mode": mode,
++            "weight_semantics": "strict_gsmp" if use_gsmp and mode == "strict" else "mean_times_gsmp_scale" if use_gsmp else "incoming_mean",
++        }
++    )
++    print("[GSMP_STATS] " + json.dumps(stats, sort_keys=True), flush=True)
++    return final_weight.to(device=device, dtype=torch.float32), stats
++
++
++def cached_linear_message_weight(
++    edge_index: torch.Tensor,
++    node_year: torch.Tensor,
++    num_nodes: int,
++    use_gsmp: bool,
++    mode: str,
++    cache_dir: str | Path,
++    dataset: str,
++    graph_direction: str,
++    feature_type: str,
++    device: Optional[torch.device | str] = None,
++) -> Tuple[torch.Tensor, Dict[str, float | int | str | bool]]:
++    """Load or compute final LinearRevGAT message weights.
++
++    The cache key includes dataset, graph direction, feature type, and GSMP
++    mode so smoke/full runs reuse the same CPU preprocessing result.
++    """
++
++    cache_dir = Path(cache_dir)
++    cache_dir.mkdir(parents=True, exist_ok=True)
++    variant = "gsmp" if use_gsmp else "mean"
++    safe_feature = feature_type.replace("/", "_")
++    cache_path = cache_dir / f"{dataset}_{graph_direction}_{safe_feature}_{variant}_{mode}_linear_weight.pt"
++    if cache_path.exists():
++        payload = torch.load(cache_path, map_location="cpu")
++        weight = payload["weight"].float()
++        stats = payload.get("stats", {})
++        if not torch.isfinite(weight).all():
++            raise FloatingPointError(f"Cached weights contain NaN or Inf: {cache_path}")
++        print(f"[GSMP_CACHE] loaded {cache_path}", flush=True)
++        print("[GSMP_STATS] " + json.dumps(stats, sort_keys=True), flush=True)
++        return weight.to(device=device, dtype=torch.float32), stats
++
++    weight, stats = build_linear_message_weight(
++        edge_index=edge_index,
++        node_year=node_year,
++        num_nodes=num_nodes,
++        use_gsmp=use_gsmp,
++        mode=mode,
++        device=None,
++    )
++    torch.save({"weight": weight.cpu(), "stats": stats}, cache_path)
++    print(f"[GSMP_CACHE] saved {cache_path}", flush=True)
++    return weight.to(device=device, dtype=torch.float32), stats
+diff --git a/core/trainEnsemble.py b/core/trainEnsemble.py
+index 17321fd..f02822d 100644
+--- a/core/trainEnsemble.py
++++ b/core/trainEnsemble.py
+@@ -22,6 +22,13 @@ def run(cfg):
+             df_ = pd.DataFrame([r for r in df[f]])
+             print(
+                 f"[{f}] ValACC: {df_['val_acc'].mean():.4f} ± {df_['val_acc'].std():.4f}, TestAcc: {df_['test_acc'].mean():.4f} ± {df_['test_acc'].std():.4f}")
++            if 'test_at_best_val' in df_:
++                print(
++                    f"[FINAL] model={cfg.gnn.model.name} feature={f} seeds={len(df_)} "
++                    f"val_mean={df_['best_val'].mean():.4f} val_std={df_['best_val'].std():.4f} "
++                    f"test_at_best_val_mean={df_['test_at_best_val'].mean():.4f} "
++                    f"test_at_best_val_std={df_['test_at_best_val'].std():.4f}"
++                )
+     print(f"Running time: {round((end-start)/len(seeds), 2)}s")
+ 
+ 
+diff --git a/core/trainGNN.py b/core/trainGNN.py
+index cce8481..794e183 100644
+--- a/core/trainGNN.py
++++ b/core/trainGNN.py
+@@ -8,7 +8,7 @@ import time
+ def run(cfg):
+     seeds = [cfg.seed] if cfg.seed is not None else range(cfg.runs)
+ 
+-    if cfg.gnn.model.name == 'RevGAT':
++    if cfg.gnn.model.name in ['RevGAT', 'LinearRevGAT', 'RevGATLinear']:
+         TRAINER = DGLGNNTrainer
+     else:
+         TRAINER = GNNTrainer
+@@ -26,6 +26,13 @@ def run(cfg):
+     if len(all_acc) > 1:
+         df = pd.DataFrame(all_acc)
+         print(f"[{cfg.gnn.model.name} + {cfg.gnn.train.feature_type}] ValACC: {df['val_acc'].mean():.4f} ± {df['val_acc'].std():.4f}, TestAcc: {df['test_acc'].mean():.4f} ± {df['test_acc'].std():.4f}")
++        if 'test_at_best_val' in df:
++            print(
++                f"[FINAL] model={cfg.gnn.model.name} seeds={len(df)} "
++                f"val_mean={df['best_val'].mean():.4f} val_std={df['best_val'].std():.4f} "
++                f"test_at_best_val_mean={df['test_at_best_val'].mean():.4f} "
++                f"test_at_best_val_std={df['test_at_best_val'].std():.4f}"
++            )
+     print(f"Running time: {(end-start)/len(seeds):.2f}s")
+ 
+ 

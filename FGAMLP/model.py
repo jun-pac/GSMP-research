@@ -347,11 +347,11 @@ class NARS_JK_GAMLP(nn.Module):
         super(NARS_JK_GAMLP, self).__init__()
         self.aggregator = WeightedAggregator(num_feats, nfeat, num_hops)
         self.model = JK_GAMLP(nfeat, hidden, nclass, num_hops, dropout, input_drop, attn_drop,
-                              alpha, n_layers_1, n_layers_2, pre_process, residual,pre_dropout,bns)
+                              alpha, n_layers_1, n_layers_2, act, pre_process, residual,pre_dropout,bns)
 
-    def forward(self, feats_dict, label_emb):
+    def forward(self, feats_dict, label_emb=None):
         feats = self.aggregator(feats_dict)
-        out1 = self.model(feats, label_emb)
+        out1 = self.model(feats)
         return out1
 
 
@@ -360,11 +360,11 @@ class NARS_R_GAMLP(nn.Module):
         super(NARS_R_GAMLP, self).__init__()
         self.aggregator = WeightedAggregator(num_feats, nfeat, num_hops)
         self.model = R_GAMLP(nfeat, hidden, nclass, num_hops, dropout, input_drop,
-                             attn_drop, alpha, n_layers_1, n_layers_2, pre_process, residual,pre_dropout,bns)
+                             attn_drop, alpha, n_layers_1, n_layers_2, act, pre_process, residual,pre_dropout,bns)
 
-    def forward(self, feats_dict, label_emb):
+    def forward(self, feats_dict, label_emb=None):
         feats = self.aggregator(feats_dict)
-        out1 = self.model(feats, label_emb)
+        out1 = self.model(feats)
         return out1
 
 

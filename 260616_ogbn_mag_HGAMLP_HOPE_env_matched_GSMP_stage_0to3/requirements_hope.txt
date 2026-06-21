@@ -1,0 +1,8 @@
+# Match the official HOPE reproduction environment.
+python==3.8.20
+torch==1.13.0+cu117
+dgl-cu117==0.9.1.post1
+ogb==1.3.6
+torch_sparse==0.6.18
+numpy
+tqdm

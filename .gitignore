@@ -19,12 +19,22 @@ ENV/
 data/
 dgl_data/
 HGAMLP_MAG/
+downloads/
+resources/
+sample_relation_subsets/
+dataset
+dataset/
 **/dataset/
+**/dataset
 **/datasets/
 **/data/
 **/dgl_data/
+**/downloads/
+**/resources/
 **/ogbn_mag/
+**/ogbn-mag/
 **/ogbn_arxiv/
+**/ogbn-arxiv/
 **/mag.p
 
 # Model checkpoints, tensors, embeddings, and serialized arrays
@@ -37,6 +47,10 @@ HGAMLP_MAG/
 *.npz
 *.bin
 *.faiss
+*.emb
+*.pred
+*.csv
+*.tsv
 
 # Experiment outputs, logs, and generated caches
 logs/
@@ -44,18 +58,54 @@ results/
 outputs/
 output/
 impact_cache/
+impact_cache*
 cache/
 wandb/
+runs/
+huggingface_logs/
+checkpoints/
 **/logs/
 **/results/
 **/outputs/
 **/output/
 **/impact_cache/
+**/impact_cache*
 **/cache/
 **/wandb/
+**/runs/
+**/huggingface_logs/
+**/checkpoints/
+**/checkpoint-*/
+**/pokec_temporal_outputs/
 *.out
 *.err
 *.log
+=*
+
+# Embedded upstream/external repositories
+**/upstream/
+260614_ogbn_mag_HGAMLP_HOPE/HOPE/
+260615_ogbn_mag_HGAMLP_HOPE_env_matched_GSMP_stage_0/sparse_tools/
+260617_2_ogbn_mag_PSHGCN/PSHGCN/
+260617_2_ogbn_mag_PSHGCN/PSHGCN_upstream_clean/
+260617_ogbn_mag_RpHGNN/RpHGNN/
+sparse_tools
+sparse_tools/
+sparse_tools_t112_dgl091
+sparse_tools_t112_dgl091/
+**/sparse_tools
+**/sparse_tools/
+
+# Archives and compressed/raw downloads
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.gz
+*.bz2
+*.xz
+*.7z
+*.rar
 
 # Slurm/runtime scratch
 slurm-*.out

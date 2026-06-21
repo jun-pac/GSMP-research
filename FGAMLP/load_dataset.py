@@ -1,4 +1,5 @@
 import argparse
+import os
 import time
 import numpy as np
 import torch
@@ -6,7 +7,13 @@ import torch.nn as nn
 import dgl
 import dgl.function as fn
 from ogb.nodeproppred import DglNodePropPredDataset, Evaluator
-from heteo_data import load_data, read_relation_subsets, gen_rel_subset_feature, preprocess_features
+from heteo_data import (
+    load_data,
+    read_relation_subsets,
+    gen_rel_subset_feature,
+    preprocess_features,
+    write_default_mag_relation_subsets,
+)
 import torch.nn.functional as F
 import gc
 
@@ -187,6 +194,9 @@ def prepare_data(device, args, teacher_probs):
         feats = neighbor_average_features(g, args)
         in_feats = feats[0].shape[1]
     elif args.dataset == 'ogbn-mag':
+        if not os.path.exists(args.use_relation_subsets):
+            print(f"Relation subset file not found; writing default MAG subsets to {args.use_relation_subsets}")
+            write_default_mag_relation_subsets(args.use_relation_subsets)
         rel_subsets = read_relation_subsets(args.use_relation_subsets)
 
         with torch.no_grad():

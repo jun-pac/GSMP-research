@@ -96,7 +96,10 @@ def train(model, feats, labels, loss_fcn, optimizer, train_loader,label_emb,eval
     y_pred=[]
     for batch in train_loader:
         batch_feats = [x[batch].to(device) for x in feats]
-        output_att=model(batch_feats,label_emb[batch].to(device))
+        if label_emb is None:
+            output_att = model(batch_feats)
+        else:
+            output_att = model(batch_feats, label_emb[batch].to(device))
         y_true.append(labels[batch].to(torch.long))
         y_pred.append(output_att.argmax(dim=-1, keepdim=True).cpu())
         L1 = loss_fcn(output_att, labels[batch])
@@ -118,7 +121,11 @@ def test(model, feats, labels, test_loader, evaluator, label_emb):
     true=[]
     for batch in test_loader:
         batch_feats = [feat[batch].to(device) for feat in feats]
-        preds.append(torch.argmax(model(batch_feats,label_emb[batch].to(device)), dim=-1))
+        if label_emb is None:
+            output = model(batch_feats)
+        else:
+            output = model(batch_feats, label_emb[batch].to(device))
+        preds.append(torch.argmax(output, dim=-1))
         true.append(labels[batch])
     true=torch.cat(true)
     preds = torch.cat(preds, dim=0)
@@ -132,6 +139,10 @@ def gen_output_torch(model, feats, test_loader, device, label_emb):
     preds = []
     for batch in test_loader:
         batch_feats = [feat[batch].to(device) for feat in feats]
-        preds.append(model(batch_feats,label_emb[batch].to(device)).cpu())
+        if label_emb is None:
+            output = model(batch_feats)
+        else:
+            output = model(batch_feats, label_emb[batch].to(device))
+        preds.append(output.cpu())
     preds = torch.cat(preds, dim=0)
     return preds
