@@ -1,0 +1,65 @@
+# Python/runtime noise
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Local environments
+.venv/
+venv/
+env/
+ENV/
+.env
+.envrc
+
+# Large datasets and downloaded assets
+data/
+dgl_data/
+HGAMLP_MAG/
+**/dataset/
+**/datasets/
+**/data/
+**/dgl_data/
+**/ogbn_mag/
+**/ogbn_arxiv/
+**/mag.p
+
+# Model checkpoints, tensors, embeddings, and serialized arrays
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.pickle
+*.npy
+*.npz
+*.bin
+*.faiss
+
+# Experiment outputs, logs, and generated caches
+logs/
+results/
+outputs/
+output/
+impact_cache/
+cache/
+wandb/
+**/logs/
+**/results/
+**/outputs/
+**/output/
+**/impact_cache/
+**/cache/
+**/wandb/
+*.out
+*.err
+*.log
+
+# Slurm/runtime scratch
+slurm-*.out
+*.tmp
+*.tmp.*
+*.swp
+*.swo
