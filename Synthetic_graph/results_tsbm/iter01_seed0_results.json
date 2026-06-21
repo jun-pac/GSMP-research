@@ -1,0 +1,375 @@
+{
+  "args": {
+    "append_progress": true,
+    "data": "data_tsbm/iter01.pt",
+    "device": "cpu",
+    "dropout": 0.25,
+    "epochs": 150,
+    "eval_every": 5,
+    "gsmp_mode": "scale_preserve",
+    "gsmp_scope": "all",
+    "hidden_dim": 64,
+    "lr": 0.01,
+    "methods": "baseline,gsmp",
+    "models": "all",
+    "num_layers": 3,
+    "patience": 60,
+    "progress_file": "TSBM_progress.md",
+    "results_dir": "results_tsbm",
+    "seeds": "0",
+    "self_loop": false,
+    "sgc_k": 2,
+    "tag": "iter01_seed0",
+    "weight_decay": 0.0005
+  },
+  "data_config": {
+    "base_prob": [
+      [
+        0.017999999225139618,
+        0.2199999988079071,
+        0.2199999988079071,
+        0.2199999988079071,
+        0.2199999988079071
+      ],
+      [
+        0.2199999988079071,
+        0.017999999225139618,
+        0.2199999988079071,
+        0.2199999988079071,
+        0.2199999988079071
+      ],
+      [
+        0.2199999988079071,
+        0.2199999988079071,
+        0.017999999225139618,
+        0.2199999988079071,
+        0.2199999988079071
+      ],
+      [
+        0.2199999988079071,
+        0.2199999988079071,
+        0.2199999988079071,
+        0.017999999225139618,
+        0.2199999988079071
+      ],
+      [
+        0.2199999988079071,
+        0.2199999988079071,
+        0.2199999988079071,
+        0.2199999988079071,
+        0.017999999225139618
+      ]
+    ],
+    "chunk_size": 256,
+    "cross_gamma": 0.025,
+    "cross_p0": 0.22,
+    "dataset": "iter01",
+    "feat_dim": 32,
+    "feature_noise_max": 2.0,
+    "feature_noise_min": 1.2,
+    "feature_scale": 0.55,
+    "gamma": [
+      [
+        0.9399999976158142,
+        0.02500000037252903,
+        0.02500000037252903,
+        0.02500000037252903,
+        0.02500000037252903
+      ],
+      [
+        0.02500000037252903,
+        0.9399999976158142,
+        0.02500000037252903,
+        0.02500000037252903,
+        0.02500000037252903
+      ],
+      [
+        0.02500000037252903,
+        0.02500000037252903,
+        0.9399999976158142,
+        0.02500000037252903,
+        0.02500000037252903
+      ],
+      [
+        0.02500000037252903,
+        0.02500000037252903,
+        0.02500000037252903,
+        0.9399999976158142,
+        0.02500000037252903
+      ],
+      [
+        0.02500000037252903,
+        0.02500000037252903,
+        0.02500000037252903,
+        0.02500000037252903,
+        0.9399999976158142
+      ]
+    ],
+    "num_classes": 5,
+    "num_nodes": 3000,
+    "num_times": 12,
+    "out_dir": "data_tsbm",
+    "same_gamma": 0.94,
+    "same_p0": 0.018,
+    "seed": 0,
+    "test_times": "",
+    "test_times_resolved": [
+      9,
+      10,
+      11
+    ],
+    "train_times": "",
+    "train_times_resolved": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "val_times": "",
+    "val_times_resolved": [
+      7,
+      8
+    ]
+  },
+  "data_stats": {
+    "avg_in_degree": 54.42533493041992,
+    "feat_dim": 32,
+    "label_time_table": [
+      [
+        58,
+        47,
+        43,
+        50,
+        52
+      ],
+      [
+        46,
+        58,
+        49,
+        47,
+        50
+      ],
+      [
+        59,
+        52,
+        53,
+        35,
+        51
+      ],
+      [
+        54,
+        48,
+        42,
+        55,
+        51
+      ],
+      [
+        44,
+        44,
+        62,
+        47,
+        53
+      ],
+      [
+        48,
+        39,
+        49,
+        57,
+        57
+      ],
+      [
+        36,
+        63,
+        48,
+        54,
+        49
+      ],
+      [
+        42,
+        38,
+        60,
+        59,
+        51
+      ],
+      [
+        51,
+        51,
+        49,
+        56,
+        43
+      ],
+      [
+        51,
+        69,
+        34,
+        55,
+        41
+      ],
+      [
+        45,
+        58,
+        49,
+        43,
+        55
+      ],
+      [
+        59,
+        51,
+        45,
+        52,
+        43
+      ]
+    ],
+    "max_in_degree": 77.0,
+    "mean_abs_time_delta": 0.5885372161865234,
+    "min_in_degree": 32.0,
+    "num_classes": 5,
+    "num_edges": 163276,
+    "num_nodes": 3000,
+    "num_times": 12,
+    "same_label_edge_fraction": 0.15746955573558807,
+    "same_time_edge_fraction": 0.8214802145957947,
+    "test_nodes": 750,
+    "train_nodes": 1750,
+    "val_nodes": 500
+  },
+  "rows": [
+    {
+      "best_epoch": 15,
+      "best_val": 0.17000000178813934,
+      "final_test": 0.17733334004878998,
+      "final_val": 0.09600000083446503,
+      "method": "baseline",
+      "model": "sgc",
+      "runtime_sec": 1.107950210571289,
+      "seed": 0,
+      "test_at_best_val": 0.17466667294502258
+    },
+    {
+      "best_epoch": 135,
+      "best_val": 0.7419999837875366,
+      "final_test": 0.753333330154419,
+      "final_val": 0.7400000095367432,
+      "method": "gsmp",
+      "model": "sgc",
+      "runtime_sec": 2.5985546112060547,
+      "seed": 0,
+      "test_at_best_val": 0.7519999742507935
+    },
+    {
+      "best_epoch": 10,
+      "best_val": 0.17800000309944153,
+      "final_test": 0.14000000059604645,
+      "final_val": 0.1379999965429306,
+      "method": "baseline",
+      "model": "gcn",
+      "runtime_sec": 25.99951672554016,
+      "seed": 0,
+      "test_at_best_val": 0.19733333587646484
+    },
+    {
+      "best_epoch": 120,
+      "best_val": 0.8259999752044678,
+      "final_test": 0.846666693687439,
+      "final_val": 0.8240000009536743,
+      "method": "gsmp",
+      "model": "gcn",
+      "runtime_sec": 60.59721541404724,
+      "seed": 0,
+      "test_at_best_val": 0.8453333377838135
+    },
+    {
+      "best_epoch": 45,
+      "best_val": 0.3720000088214874,
+      "final_test": 0.3479999899864197,
+      "final_val": 0.3100000023841858,
+      "method": "baseline",
+      "model": "graphsage",
+      "runtime_sec": 39.40735459327698,
+      "seed": 0,
+      "test_at_best_val": 0.37466666102409363
+    },
+    {
+      "best_epoch": 140,
+      "best_val": 0.9079999923706055,
+      "final_test": 0.890666663646698,
+      "final_val": 0.9020000100135803,
+      "method": "gsmp",
+      "model": "graphsage",
+      "runtime_sec": 72.30039763450623,
+      "seed": 0,
+      "test_at_best_val": 0.8840000033378601
+    },
+    {
+      "best_epoch": 5,
+      "best_val": 0.23999999463558197,
+      "final_test": 0.17733334004878998,
+      "final_val": 0.18000000715255737,
+      "method": "baseline",
+      "model": "linearrevgat",
+      "runtime_sec": 36.50414848327637,
+      "seed": 0,
+      "test_at_best_val": 0.23733332753181458
+    },
+    {
+      "best_epoch": 145,
+      "best_val": 0.9259999990463257,
+      "final_test": 0.9053333401679993,
+      "final_val": 0.9160000085830688,
+      "method": "gsmp",
+      "model": "linearrevgat",
+      "runtime_sec": 77.09524512290955,
+      "seed": 0,
+      "test_at_best_val": 0.909333348274231
+    }
+  ],
+  "summary": [
+    {
+      "baseline_mean": 0.17466667294502258,
+      "baseline_std": 0.0,
+      "delta_mean": 0.5773333311080933,
+      "delta_min": 0.5773333311080933,
+      "gsmp_mean": 0.7519999742507935,
+      "gsmp_std": 0.0,
+      "model": "sgc",
+      "num_seeds": 1,
+      "relative_delta_pct": 330.5343379900598
+    },
+    {
+      "baseline_mean": 0.19733333587646484,
+      "baseline_std": 0.0,
+      "delta_mean": 0.6480000019073486,
+      "delta_min": 0.6480000019073486,
+      "gsmp_mean": 0.8453333377838135,
+      "gsmp_std": 0.0,
+      "model": "gcn",
+      "num_seeds": 1,
+      "relative_delta_pct": 328.3783751129669
+    },
+    {
+      "baseline_mean": 0.37466666102409363,
+      "baseline_std": 0.0,
+      "delta_mean": 0.5093333721160889,
+      "delta_min": 0.5093333721160889,
+      "gsmp_mean": 0.8840000033378601,
+      "gsmp_std": 0.0,
+      "model": "graphsage",
+      "num_seeds": 1,
+      "relative_delta_pct": 135.94307289682635
+    },
+    {
+      "baseline_mean": 0.23733332753181458,
+      "baseline_std": 0.0,
+      "delta_mean": 0.6720000505447388,
+      "delta_min": 0.6720000505447388,
+      "gsmp_mean": 0.909333348274231,
+      "gsmp_std": 0.0,
+      "model": "linearrevgat",
+      "num_seeds": 1,
+      "relative_delta_pct": 283.1460956340643
+    }
+  ]
+}
