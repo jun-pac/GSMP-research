@@ -12,6 +12,12 @@ Work from the ogbn-mag directory:
 cd /users/PAS1289/jyp531/GSMP-research/260617_2_ogbn_mag_PSHGCN/PSHGCN/ogbn-mag
 ```
 
+Results summary:
+
+```text
+results/summary.md
+```
+
 The leaderboard baseline is the repository's ComplEx + multi-stage command:
 
 ```bash
